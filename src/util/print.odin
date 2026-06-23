@@ -11,12 +11,14 @@ printBytesAsBinString :: proc(bytes: []byte) {
 	for i in bytes {
 		printByteAsBinString(i)
 	}
+	fmt.println("----------")
 }
 
 printDynamicBytesAsBinString :: proc(bytes: ^[dynamic]byte) {
 	for i in bytes {
 		printByteAsBinString(i)
 	}
+	fmt.println("----------")
 }
 
 print :: proc {

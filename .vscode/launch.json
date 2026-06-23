@@ -5,7 +5,7 @@
       "type": "lldb-dap",
       "request": "launch",
       "name": "Debug",
-      "preLaunchTask": "Build",
+      "preLaunchTask": "build",
       "program": "${workspaceFolder}/build/iotdin",
       "args": [],
       "cwd": "${workspaceFolder}/src",

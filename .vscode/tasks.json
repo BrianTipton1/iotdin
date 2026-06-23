@@ -7,9 +7,9 @@
       "command": "mkdir -p ${workspaceFolder}/build"
     },
     {
-      "label": "Build",
+      "label": "build",
       "type": "shell",
-      "command": "odin build src -debug -out:build/iotdin",
+      "command": "odin build src -debug -out:build/iotdin -collection:iotdin=src",
       "group": {
         "kind": "build",
         "isDefault": true
@@ -17,6 +17,29 @@
       "dependsOn": [
         "mkdir"
       ],
+      "problemMatcher": []
+    },
+    {
+      "label": "tests",
+      "type": "shell",
+      "command": "odin test tests/ -all-packages -collection:iotdin=src",
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      },
+    },
+    {
+      "label": "format all",
+      "type": "shell",
+      "command": "odinfmt",
+      "args": [
+        "-w",
+        "${workspaceFolder}"
+      ],
+      "presentation": {
+        "reveal": "silent",
+        "panel": "shared"
+      },
       "problemMatcher": []
     }
   ]
