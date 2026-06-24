@@ -6,10 +6,19 @@
       "request": "launch",
       "name": "Debug",
       "preLaunchTask": "build",
-      "program": "${workspaceFolder}/build/iotdin",
+      "program": "${workspaceFolder}/bin/iotdin",
       "args": [],
       "cwd": "${workspaceFolder}/src",
       "internalConsoleOptions": "openOnSessionStart"
+    },
+    {
+      "type": "lldb-dap",
+      "name": "debug tests",
+      "request": "launch",
+      "program": "${workspaceFolder}/bin/tests_debug",
+      "args": [],
+      "cwd": "${workspaceFolder}",
+      "preLaunchTask": "build_tests"
     }
   ]
 }

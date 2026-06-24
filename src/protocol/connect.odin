@@ -7,31 +7,26 @@ import "iotdin:util"
 FIXED_HEADER_FLAGS :: 0
 
 // MQTT 5.0 Ref https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901035
-connectVariableHeader :: proc(packet: Connect_Packet) -> (variableHeader: [dynamic]byte) {
-	constBytes := []byte {
+connect_variable_header_first_ten :: proc(packet: Connect_Packet) -> (variableHeader: [10]byte) {
+	bytes := [10]byte {
 		byte(0), // Len MSB
 		byte(4), // Len LSB
-		'M',
-		'Q',
-		'T',
-		'T',
+		byte('M'),
+		byte('Q'),
+		byte('T'),
+		byte('T'),
 		byte(MQTT_VERSION), // Protocol Version
+		connect_variable_flags(packet),
+		byte(packet.keep_alive >> 8),
+		byte(packet.keep_alive),
 	}
 
-	buf := make([dynamic]byte)
-
-	append(&buf, ..constBytes)
-	connectFlags := connectFlags(packet)
-	append(&buf, connectFlags)
-	append(&buf, byte(packet.keep_alive >> 8))
-	append(&buf, byte(packet.keep_alive))
-
-	return buf
+	return bytes
 }
 
 
 // https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901038
-connectFlags :: proc(packet: Connect_Packet) -> (flags: byte) {
+connect_variable_flags :: proc(packet: Connect_Packet) -> (flags: byte) {
 	will, will_exists := packet.will.?
 
 	flags |= (1 << 7) if packet.username != nil else 0
@@ -60,28 +55,15 @@ serialize_connect_packet :: proc(
 	buf: ^[dynamic]byte,
 	packet: Connect_Packet,
 ) -> (
-	serialized_packet: ^[dynamic]byte,
+	error: Serialize_Connect_Error,
 ) {
-	variableHeader := connectVariableHeader(packet)
-	defer delete(variableHeader)
-
-	var_int: [4]byte
-	size, err := encode_variable_int(
-		&var_int,
-		cast(u128)(len(packet.payload) + len(variableHeader)),
+	variable_header := connect_variable_header_first_ten(packet)
+	size, err, var_int := encode_variable_int(
+		cast(u128)(len(packet.payload) + len(variable_header)),
 	)
 
+	fixedHeader(buf, .CONNECT, var_int[:size], FIXED_HEADER_FLAGS)
+	append(buf, ..variable_header[:])
 
-	compressed: [dynamic]byte
-	for b in var_int {
-		append(&compressed, b)
-		flags := transmute(Variable_Byte_Bits)b
-		if .Continuation not_in flags {
-			break
-		}
-	}
-	fixedHeader(buf, .CONNECT, compressed[:], FIXED_HEADER_FLAGS)
-	append(buf, ..variableHeader[:])
-
-	return buf
+	return .None
 }

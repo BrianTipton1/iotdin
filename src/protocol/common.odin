@@ -2,10 +2,7 @@
 package protocol
 
 import "core:encoding/varint"
-import "core:fmt"
-import "core:math"
 import "core:math/bits"
-import "iotdin:util"
 
 
 controlHeaderByte :: proc(packet_type: Packet_Type, flags: int) -> (control_header: byte) {
@@ -30,28 +27,24 @@ fixedHeader :: proc(
 }
 
 
-Variable_Byte_Bit :: enum u8 {
-	Bit0,
-	Bit1,
-	Bit2,
-	Bit3,
-	Bit4,
-	Bit5,
-	Bit6,
-	Continuation,
+encode_variable_int :: proc(value: u128) -> (size: int, error: MQTT_Error, var_int: [4]byte) {
+	buf: [4]byte
+	return varint.encode_uleb128(buf[:], value), buf
 }
-Variable_Byte_Bits :: bit_set[Variable_Byte_Bit;byte]
 
-encode_variable_int :: proc(
-	buf: ^[4]byte,
-	value: u128,
-) -> (
-	size: Maybe(int),
-	error: MQTT_Encoding_Var_Int_Error,
-) {
-	max := math.pow2_f64(128) - 1
-	if (cast(f64)value >= max) {
-		return nil, .ValueTooLarge
+decode_var_int :: proc(value: []byte) -> (val: Maybe(MQTT_Var_Int), size: int, error: MQTT_Error) {
+	valu128: u128
+	valu128, size, error = varint.decode_uleb128_buffer(value)
+
+
+	if size > 4 {
+		error = .MQTT_Variable_Bytes_More_Than_Four
+		return
 	}
-	return varint.encode_uleb128(buf[:], value)
+	if error == varint.Error.None {
+		val = MQTT_Var_Int(valu128)
+	}
+
+
+	return
 }

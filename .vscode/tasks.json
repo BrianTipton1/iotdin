@@ -4,12 +4,19 @@
     {
       "label": "mkdir",
       "type": "shell",
-      "command": "mkdir -p ${workspaceFolder}/build"
+      "command": "mkdir -p ${workspaceFolder}/bin"
     },
     {
       "label": "build",
       "type": "shell",
-      "command": "odin build src -debug -out:build/iotdin -collection:iotdin=src",
+      "command": "odin",
+      "args": [
+        "build",
+        "src",
+        "-debug",
+        "-out:bin/iotdin",
+        "-collection:iotdin=src"
+      ],
       "group": {
         "kind": "build",
         "isDefault": true
@@ -22,7 +29,13 @@
     {
       "label": "tests",
       "type": "shell",
-      "command": "odin test tests/ -all-packages -collection:iotdin=src",
+      "command": "odin",
+      "args": [
+        "test",
+        "tests/",
+        "-all-packages",
+        "-collection:iotdin=src",
+      ],
       "group": {
         "kind": "test",
         "isDefault": true
@@ -41,6 +54,28 @@
         "panel": "shared"
       },
       "problemMatcher": []
+    },
+    {
+      "label": "build_tests",
+      "type": "shell",
+      "command": "odin",
+      "args": [
+        "build",
+        "${workspaceFolder}/tests",
+        "-build-mode:test",
+        "-all-packages",
+        "-debug",
+        "-out:${workspaceFolder}/bin/tests_debug",
+        "-collection:iotdin=src",
+      ],
+      "group": "build",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "silent"
+      },
+      "dependsOn": [
+        "mkdir"
+      ],
     }
   ]
 }
