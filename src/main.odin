@@ -14,7 +14,7 @@ main :: proc() {
 	x := protocol.serialize(
 		&buf,
 		protocol.Connect_Packet {
-			will = protocol.Will{qos = .AtMostOnce},
+			will = protocol.Will{qos = .At_Most_Once},
 			duplicate = false,
 			username = "test",
 			password = []byte{byte('P'), byte('A'), byte('S'), byte('S')},

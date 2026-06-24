@@ -27,7 +27,7 @@ fixedHeader :: proc(
 }
 
 
-encode_variable_int :: proc(value: u128) -> (size: int, error: MQTT_Error, var_int: [4]byte) {
+encode_variable_int :: proc(value: u128) -> (size: int, error: varint.Error, var_int: [4]byte) {
 	buf: [4]byte
 	return varint.encode_uleb128(buf[:], value), buf
 }
