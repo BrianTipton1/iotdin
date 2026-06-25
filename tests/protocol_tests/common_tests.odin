@@ -59,7 +59,7 @@ expect_decode_valid :: proc(t: ^testing.T) {
 	}
 	for c in cases {
 		value, size, err := protocol.decode_var_int(c.buf)
-		testing.expectf(t, err == varint.Error.None, "buf %v: unexpected error %v", c.buf, err)
+		testing.expectf(t, err == .None, "buf %v: unexpected error %v", c.buf, err)
 		testing.expectf(
 			t,
 			value == c.value,
@@ -76,5 +76,5 @@ expect_decode_valid :: proc(t: ^testing.T) {
 expect_decode_too_large :: proc(t: ^testing.T) {
 	buf := []u8{0xFF, 0xFF, 0xFF, 0xFF, 0x01}
 	_, _, err := protocol.decode_var_int(buf)
-	testing.expect(t, err == .MQTT_Variable_Bytes_More_Than_Four, "value should be too large")
+	testing.expect(t, err == .Variable_Bytes_More_Than_Four, "value should be too large")
 }

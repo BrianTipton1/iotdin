@@ -32,16 +32,17 @@ encode_variable_int :: proc(value: u128) -> (size: int, error: varint.Error, var
 	return varint.encode_uleb128(buf[:], value), buf
 }
 
-decode_var_int :: proc(value: []byte) -> (val: Maybe(MQTT_Var_Int), size: int, error: MQTT_Error) {
+decode_var_int :: proc(value: []byte) -> (val: Maybe(MQTT_Var_Int), size: int, error: MQTT_Error = .None) {
 	valu128: u128
-	valu128, size, error = varint.decode_uleb128_buffer(value)
+	decode_error: varint.Error
+	valu128, size, decode_error = varint.decode_uleb128_buffer(value)
 
 
 	if size > 4 {
-		error = .MQTT_Variable_Bytes_More_Than_Four
+		error = .Variable_Bytes_More_Than_Four
 		return
 	}
-	if error == varint.Error.None {
+	if decode_error == .None {
 		val = MQTT_Var_Int(valu128)
 	}
 
