@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve pinned Odin version
+        id: odin_lock
+        run: |
+          raw=$(sed -e 's/#.*$//' .odin-version | grep -v '^[[:space:]]*$' | head -n 1 | tr -d '[:space:]')
+          if [ -z "$raw" ]; then
+            echo "::error::No version found in .odin-version"
+            exit 1
+          fi
+          base=${raw%%:*}
+          # setup-odin can install a monthly release by its tag, but only the
+          # *latest* nightly (no historical/commit pin), so map accordingly.
+          case "$base" in
+            *-nightly) release=nightly ;;
+            *)         release=$base ;;
+          esac
+          echo "release=$release" >> "$GITHUB_OUTPUT"
+          echo "Locked '$raw' -> setup-odin release: '$release'"
+
+      - name: Set up Odin
+        uses: laytan/setup-odin@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          release: ${{ steps.odin_lock.outputs.release }}
+
+      - name: Verify Odin version matches lock
+        run: ./scripts/check-odin-version.sh
+
+      - name: Build
+        run: |
+          mkdir -p bin
+          odin build src -debug -out:bin/iotdin -collection:iotdin=src
+
+      - name: Test
+        run: odin test tests/ -all-packages -collection:iotdin=src
