@@ -1,6 +1,7 @@
 
 package transport
 
+import "iotdin:util"
 import "core:fmt"
 import "core:net"
 
@@ -11,13 +12,18 @@ sendTest :: proc(data: []byte) {
 		address = net.IP4_Loopback,
 	}
 
-	bindErr := net.bind(socket, endpoint)
+	bind_err := net.bind(socket, endpoint)
 
 	tcpSocket, listenErr := net.dial_tcp(endpoint)
 
 	bytesWritten, sendError := net.send(tcpSocket, data)
+	if sendError == net.TCP_Send_Error.None {
+		connack: [17]byte
 
-	fmt.println("Bytes Written:", bytesWritten)
-	fmt.println("Bytes Written is same as len:", bytesWritten == len(data))
-	fmt.println("Send Error:", sendError)
+		accept_client, accept_endpoint, l := net.accept_tcp(tcpSocket)
+		recv_bytes_read, recv_err := net.recv_tcp(tcpSocket, connack[:])
+		util.print(connack[:recv_bytes_read])
+		fmt.println(recv_bytes_read)
+		fmt.println(recv_err)
+	}
 }

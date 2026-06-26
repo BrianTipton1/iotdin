@@ -38,10 +38,8 @@ Property_ID :: enum u8 {
 
 append_scalar :: proc(
 	buf: ^[dynamic]byte,
-	id: Property_ID,
 	value: $T,
 ) -> MQTT_Error where intrinsics.type_is_integer(T) {
-	append(buf, byte(id))
 	when size_of(T) == 1 {
 		append(buf, byte(value))
 	} else when size_of(T) == 2 {
@@ -56,35 +54,51 @@ append_scalar :: proc(
 	return .None
 }
 
-append_bool :: proc(buf: ^[dynamic]byte, id: Property_ID, value: bool) -> MQTT_Error {
+append_scalar_property :: proc(
+	buf: ^[dynamic]byte,
+	id: Property_ID,
+	value: $T,
+) -> MQTT_Error where intrinsics.type_is_integer(T) {
 	append(buf, byte(id))
+	return append_scalar(buf, value)
+}
+append_bool :: proc(buf: ^[dynamic]byte, value: bool) -> MQTT_Error {
 	append(buf, byte(1) if value else byte(0))
 	return .None
 }
-
-append_string :: proc(buf: ^[dynamic]byte, id: Property_ID, s: string) -> MQTT_Error {
+append_bool_property :: proc(buf: ^[dynamic]byte, id: Property_ID, value: bool) -> MQTT_Error {
 	append(buf, byte(id))
+	append_bool(buf, value)
+	return .None
+}
+
+
+append_string :: proc(buf: ^[dynamic]byte, s: string) -> MQTT_Error {
 	length := transmute([2]byte)(u16be(len(s)))
 	append(buf, ..length[:])
 	append(buf, ..transmute([]byte)s)
 	return .None
 }
 
-append_binary :: proc(buf: ^[dynamic]byte, id: Property_ID, data: []byte) -> MQTT_Error {
+append_string_property :: proc(buf: ^[dynamic]byte, id: Property_ID, s: string) -> MQTT_Error {
 	append(buf, byte(id))
+	append_string(buf, s)
+	return .None
+}
+
+append_binary :: proc(buf: ^[dynamic]byte, data: []byte) -> MQTT_Error {
 	length := transmute([2]byte)(u16be(len(data)))
 	append(buf, ..length[:])
 	append(buf, ..data)
 	return .None
 }
 
-append_pair :: proc(
-	buf: ^[dynamic]byte,
-	id: Property_ID,
-	name: string,
-	value: string,
-) -> MQTT_Error {
+append_binary_property :: proc(buf: ^[dynamic]byte, id: Property_ID, data: []byte) -> MQTT_Error {
 	append(buf, byte(id))
+	return append_binary(buf, data)
+}
+
+append_pair :: proc(buf: ^[dynamic]byte, name: string, value: string) -> MQTT_Error {
 	name_len := transmute([2]byte)(u16be(len(name)))
 	append(buf, ..name_len[:])
 	append(buf, ..transmute([]byte)name)
@@ -94,22 +108,36 @@ append_pair :: proc(
 	return .None
 }
 
-append_varint :: proc(buf: ^[dynamic]byte, id: Property_ID, value: u128) -> MQTT_Error {
+append_pair_property :: proc(
+	buf: ^[dynamic]byte,
+	id: Property_ID,
+	name: string,
+	value: string,
+) -> MQTT_Error {
 	append(buf, byte(id))
+	return append_pair(buf, name, value)
+}
+
+append_varint :: proc(buf: ^[dynamic]byte, value: u128) -> MQTT_Error {
 	size, err, encoded := encode_variable_int(value)
 	if err != .None do return MQTT_Var_Int_Error.Variable_Bytes_More_Than_Four
 	append(buf, ..encoded[:size])
 	return .None
 }
 
+append_varint_property :: proc(buf: ^[dynamic]byte, id: Property_ID, value: u128) -> MQTT_Error {
+	append(buf, byte(id))
+	return append_varint(buf, value)
+}
+
 // TODO: need better error handling around values that are sized incorrectly
 append_property :: proc {
-	append_scalar,
-	append_bool,
-	append_string,
-	append_binary,
-	append_pair,
-	append_varint,
+	append_scalar_property,
+	append_bool_property,
+	append_string_property,
+	append_binary_property,
+	append_pair_property,
+	append_varint_property,
 }
 
 UserProperty :: struct {
@@ -135,8 +163,8 @@ Connect_Will_Properties :: struct {
 	message_expiry_interval:  u32,
 	content_type:             string,
 	response_topic:           string,
-	coorelation_data:         []byte,
-	user_properties:          []UserProperty,
+	coorelation_data:         Maybe([]byte),
+	user_properties:          Maybe([]UserProperty),
 	will_topic:               string,
 }
 
