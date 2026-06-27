@@ -1,5 +1,6 @@
 package main
 
+import "base:runtime"
 import "core:fmt"
 import "iotdin:protocol"
 import "iotdin:transport"
@@ -48,6 +49,5 @@ main :: proc() {
 	)
 
 	v := buf[:]
-	// util.print(v)
 	transport.sendTest(v)
 }

@@ -5,7 +5,7 @@ import "core:encoding/varint"
 import "core:math/bits"
 
 
-controlHeaderByte :: proc(packet_type: Packet_Type, flags: int) -> (control_header: byte) {
+serialize_control_headerByte :: proc(packet_type: Packet_Type, flags: int) -> (control_header: byte) {
 	enum_value := cast(int)packet_type
 
 	b := bits.bitfield_insert(0, enum_value, 4, 4)
@@ -15,19 +15,19 @@ controlHeaderByte :: proc(packet_type: Packet_Type, flags: int) -> (control_head
 	return
 }
 
-fixedHeader :: proc(
+serialize_fixed_header :: proc(
 	buf: ^[dynamic]byte,
 	packet_type: Packet_Type,
 	remaining_length: []byte,
 	flags: int,
 ) {
-	control_header := controlHeaderByte(packet_type, flags)
+	control_header := serialize_control_headerByte(packet_type, flags)
 	append(buf, control_header)
 	append(buf, ..remaining_length[:])
 }
 
 
-encode_variable_int :: proc(value: u128) -> (size: int, error: varint.Error, var_int: [4]byte) {
+serialize_variable_int :: proc(value: u128) -> (size: int, error: varint.Error, var_int: [4]byte) {
 	buf: [4]byte
 	return varint.encode_uleb128(buf[:], value), buf
 }

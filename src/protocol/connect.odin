@@ -8,57 +8,75 @@ import "iotdin:util"
 @(private)
 FIXED_HEADER_FLAGS :: 0
 
-connect_properties :: proc(
+serialize_connect_properties :: proc(
 	packet: Connect_Packet,
 ) -> (
-	len_var_int: [4]byte,
-	len_var_int_size: int,
 	properties: [dynamic]byte,
 	error: varint.Error,
 ) {
 	properties = make([dynamic]byte)
+	properties_just_data := make([dynamic]byte)
+	defer delete(properties_just_data)
 
 	append_property(
-		&properties,
+		&properties_just_data,
 		.Session_Expiry_Interval,
 		packet.properties.session_expiry_interval,
 	)
-	append_property(&properties, .Receive_Maximum, packet.properties.receive_maximum)
-	append_property(&properties, .Maximum_Packet_Size, packet.properties.maximum_packet_size)
-	append_property(&properties, .Topic_Alias_Maximum, packet.properties.topic_alias_maximum)
+	append_property(&properties_just_data, .Receive_Maximum, packet.properties.receive_maximum)
 	append_property(
-		&properties,
+		&properties_just_data,
+		.Maximum_Packet_Size,
+		packet.properties.maximum_packet_size,
+	)
+	append_property(
+		&properties_just_data,
+		.Topic_Alias_Maximum,
+		packet.properties.topic_alias_maximum,
+	)
+	append_property(
+		&properties_just_data,
 		.Request_Response_Information,
 		packet.properties.request_response_information,
 	)
 	append_property(
-		&properties,
+		&properties_just_data,
 		.Request_Problem_Information,
 		packet.properties.request_problem_information,
 	)
 
 	for user_property in packet.properties.user_properties {
-		append_property(&properties, .User_Property, user_property.name, user_property.value)
+		append_property(
+			&properties_just_data,
+			.User_Property,
+			user_property.name,
+			user_property.value,
+		)
 	}
 
 	if auth_method, auth_method_exists := packet.properties.authentication_method.?;
 	   auth_method_exists {
-		append_property(&properties, .Authentication_Method, auth_method)
+		append_property(&properties_just_data, .Authentication_Method, auth_method)
 	}
 	if auth_data, auth_data_exists := packet.properties.authentication_data.?; auth_data_exists {
 		append_property(
-			&properties,
+			&properties_just_data,
 			.Authentication_Data,
 			packet.properties.authentication_data.([]byte),
 		)
 	}
 
-	combined_byte_length := len(properties)
+	combined_byte_length := len(properties_just_data)
 
-	len_var_int_size, error, len_var_int = encode_variable_int(u128(combined_byte_length))
-	if error != .None {
-		return
-	}
+
+	len_var_int: [4]byte
+	len_var_int_size: int
+	len_var_int_size, error, len_var_int = serialize_variable_int(u128(combined_byte_length))
+
+
+	append(&properties, ..len_var_int[:len_var_int_size])
+	append(&properties, ..properties_just_data[:])
+
 
 	return
 }
@@ -160,7 +178,7 @@ connect_payload_will :: proc(packet: Connect_Packet) -> (will_payload_bytes: [dy
 }
 
 
-connect_payload :: proc(packet: Connect_Packet) -> (payload_bytes: [dynamic]byte) {
+serialize_connect_payload :: proc(packet: Connect_Packet) -> (payload_bytes: [dynamic]byte) {
 	payload_bytes = make([dynamic]byte)
 	append_string(&payload_bytes, packet.payload.client_identifier)
 
@@ -190,22 +208,17 @@ serialize_connect_packet :: proc(
 	error: Serialize_Error,
 ) {
 	variable_header_first_ten := connect_variable_header_first_ten(packet)
-	properties_var_int_len, len_var_int_size, properties, e := connect_properties(packet)
+	properties, e := serialize_connect_properties(packet)
 	defer delete(properties)
 
-	payload := connect_payload(packet)
+	payload := serialize_connect_payload(packet)
 	defer delete(payload)
 
-	combined_size, err, combined_var_int := encode_variable_int(
-		cast(u128)(len(variable_header_first_ten) +
-			len_var_int_size +
-			len(properties) +
-			len(payload)),
-	)
+	size_of_packet := cast(u128)(len(variable_header_first_ten) + len(properties) + len(payload))
+	combined_size, err, combined_var_int := serialize_variable_int(size_of_packet)
 
-	fixedHeader(buf, .CONNECT, combined_var_int[:combined_size], FIXED_HEADER_FLAGS)
+	serialize_fixed_header(buf, .CONNECT, combined_var_int[:combined_size], FIXED_HEADER_FLAGS)
 	append(buf, ..variable_header_first_ten[:])
-	append(buf, ..properties_var_int_len[:len_var_int_size])
 	append(buf, ..properties[:])
 	append(buf, ..payload[:])
 

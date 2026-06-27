@@ -119,7 +119,7 @@ append_pair_property :: proc(
 }
 
 append_varint :: proc(buf: ^[dynamic]byte, value: u128) -> MQTT_Error {
-	size, err, encoded := encode_variable_int(value)
+	size, err, encoded := serialize_variable_int(value)
 	if err != .None do return MQTT_Var_Int_Error.Variable_Bytes_More_Than_Four
 	append(buf, ..encoded[:size])
 	return .None

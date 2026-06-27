@@ -23,7 +23,7 @@ expect_encode_variable_byte_max :: proc(t: ^testing.T) {
 	}
 
 	for c in cases {
-		size, err, var_int := protocol.encode_variable_int(cast(u128)c.value)
+		size, err, var_int := protocol.serialize_variable_int(cast(u128)c.value)
 		testing.expect(t, err == varint.Error.None, "result has error")
 		testing.expect(t, size == c.size, "incorrect size")
 		testing.expect(t, var_int[0] == c.expected[0])
@@ -35,7 +35,7 @@ expect_encode_variable_byte_max :: proc(t: ^testing.T) {
 
 @(test)
 expect_encode_variable_byte_buf_too_small :: proc(t: ^testing.T) {
-	size, err, var_int := protocol.encode_variable_int(268435456)
+	size, err, var_int := protocol.serialize_variable_int(268435456)
 	testing.expect(t, err == .Buffer_Too_Small, "Buffer should be too small")
 }
 
