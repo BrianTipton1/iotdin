@@ -152,20 +152,26 @@ Connect_Properties :: struct {
 	topic_alias_maximum:          u16,
 	request_response_information: bool,
 	request_problem_information:  bool,
-	user_properties:              []UserProperty,
+	user_properties:              Maybe([]UserProperty),
 	authentication_method:        Maybe(string), // TODO: come back to with better defined auth ideas
 	authentication_data:          Maybe([]byte),
 }
 
+Connect_Will :: struct {
+	qos:        QoS_Type,
+	will_topic: string,
+	payload:    string,
+	properties: Maybe(Connect_Will_Properties),
+}
+
 Connect_Will_Properties :: struct {
-	will_delay_interval:      u32,
-	payload_format_indicator: bool,
-	message_expiry_interval:  u32,
-	content_type:             string,
-	response_topic:           string,
+	will_delay_interval:      Maybe(u32),
+	payload_format_indicator: Maybe(bool),
+	message_expiry_interval:  Maybe(u32),
+	content_type:             Maybe(string),
+	response_topic:           Maybe(string),
 	coorelation_data:         Maybe([]byte),
 	user_properties:          Maybe([]UserProperty),
-	will_topic:               string,
 }
 
 

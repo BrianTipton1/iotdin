@@ -13,23 +13,24 @@ main :: proc() {
 	x := protocol.serialize(
 	&buf,
 	protocol.Connect_Packet {
-		will = protocol.Will{qos = .At_Most_Once}, // TODO: need to still fix the will payload
 		duplicate = false,
 		username = "test",
 		password = []byte{byte('P'), byte('A'), byte('S'), byte('S')},
 		clean_start = true,
-		payload = protocol.Connect_Payload {
-			client_identifier = "dummyclient",
-			will_properties = protocol.Connect_Will_Properties {
-				will_delay_interval = 10,
-				payload_format_indicator = false,
-				message_expiry_interval = 20,
-				content_type = "text/plain",
-				response_topic = "will response topic",
-				coorelation_data = nil,
-				user_properties = nil,
-				will_topic = "willtopic",
-			},
+		client_identifier = "dummyclient",
+		will = protocol.Connect_Will {
+			qos        = .At_Most_Once,
+			// properties = protocol.Connect_Will_Properties {
+				// will_delay_interval = 10,
+				// payload_format_indicator = false,
+				// message_expiry_interval = 20,
+				// content_type = "text/plain",
+				// response_topic = "will response topic",
+				// coorelation_data = nil,
+				// user_properties = nil,
+			// },
+			will_topic = "willtopic",
+			payload    = "some payload nice wowzers",
 		},
 		properties = protocol.Connect_Properties {
 			session_expiry_interval      = 50,

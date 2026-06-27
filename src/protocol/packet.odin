@@ -25,27 +25,15 @@ QoS_Type :: enum {
 	Exactly_Once  = 2, // PUBLISH, PUBREC, PUBREL, PUBCOMP
 }
 
-Will :: struct {
-	topic:   string,
-	message: []byte,
-	qos:     QoS_Type,
-	retain:  bool,
-}
-
-Connect_Payload :: struct {
-	client_identifier: string,
-	will_properties:   Connect_Will_Properties,
-}
-
 Connect_Packet :: struct {
-	duplicate:   bool,
-	payload:     Connect_Payload,
-	username:    Maybe(string),
-	password:    Maybe([]byte),
-	will:        Maybe(Will),
-	clean_start: bool,
-	keep_alive:  u16,
-	properties:  Connect_Properties,
+	duplicate:         bool,
+	username:          Maybe(string),
+	password:          Maybe([]byte),
+	clean_start:       bool,
+	keep_alive:        u16,
+	properties:        Connect_Properties,
+	client_identifier: string,
+	will:              Maybe(Connect_Will),
 }
 
 Packet :: union {

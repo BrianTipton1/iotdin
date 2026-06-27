@@ -45,13 +45,16 @@ serialize_connect_properties :: proc(
 		packet.properties.request_problem_information,
 	)
 
-	for user_property in packet.properties.user_properties {
-		append_property(
-			&properties_just_data,
-			.User_Property,
-			user_property.name,
-			user_property.value,
-		)
+	user_properties, user_properties_exist := packet.properties.user_properties.?
+	if user_properties_exist {
+		for user_property in user_properties {
+			append_property(
+				&properties_just_data,
+				.User_Property,
+				user_property.name,
+				user_property.value,
+			)
+		}
 	}
 
 	if auth_method, auth_method_exists := packet.properties.authentication_method.?;
@@ -69,12 +72,7 @@ serialize_connect_properties :: proc(
 	combined_byte_length := len(properties_just_data)
 
 
-	len_var_int: [4]byte
-	len_var_int_size: int
-	len_var_int_size, error, len_var_int = serialize_variable_int(u128(combined_byte_length))
-
-
-	append(&properties, ..len_var_int[:len_var_int_size])
+	err := append_varint(&properties, u128(combined_byte_length))
 	append(&properties, ..properties_just_data[:])
 
 
@@ -128,42 +126,50 @@ connect_variable_flags :: proc(packet: Connect_Packet) -> (flags: byte) {
 	return
 }
 
-connect_payload_will :: proc(packet: Connect_Packet) -> (will_payload_bytes: [dynamic]byte) {
+serialize_connect_payload_will :: proc(will: Connect_Will) -> (will_payload_bytes: [dynamic]byte) {
+	will_payload_bytes = make([dynamic]byte)
+
+	properties, _ := will.properties.?
+
 	will_properties_bytes := make([dynamic]byte)
 	defer delete(will_properties_bytes)
-	will_payload_bytes = make([dynamic]byte)
-	append_property(
-		&will_properties_bytes,
-		.Will_Delay_Interval,
-		packet.payload.will_properties.will_delay_interval,
-	)
-	append_property(
-		&will_properties_bytes,
-		.Payload_Format_Indicator,
-		packet.payload.will_properties.payload_format_indicator,
-	)
-	append_property(
-		&will_properties_bytes,
-		.Message_Expiry_Interval,
-		packet.payload.will_properties.message_expiry_interval,
-	)
 
-	append_property(
-		&will_properties_bytes,
-		.Content_Type,
-		packet.payload.will_properties.content_type,
-	)
+	will_delay_interval, will_delay_interval_exists := properties.will_delay_interval.?
+	if will_delay_interval_exists {
+		append_property(&will_properties_bytes, .Will_Delay_Interval, will_delay_interval)
+	}
 
-	append_property(
-		&will_properties_bytes,
-		.Response_Topic,
-		packet.payload.will_properties.response_topic,
-	)
-	if c_data, c_data_exists := packet.payload.will_properties.coorelation_data.?; c_data_exists {
+	payload_format_indicator, payload_format_indicator_exists := properties.payload_format_indicator.?
+	if payload_format_indicator_exists {
+		append_property(
+			&will_properties_bytes,
+			.Payload_Format_Indicator,
+			payload_format_indicator,
+		)
+	}
+
+	message_expiry_interval, message_expiry_interval_exists := properties.message_expiry_interval.?
+	if message_expiry_interval_exists {
+		append_property(&will_properties_bytes, .Message_Expiry_Interval, message_expiry_interval)
+	}
+
+	content_type, content_type_exists := properties.content_type.?
+	if content_type_exists {
+		append_property(&will_properties_bytes, .Content_Type, content_type)
+	}
+
+	response_topic, response_topic_exists := properties.response_topic.?
+	if response_topic_exists {
+		append_property(&will_properties_bytes, .Response_Topic, response_topic)
+	}
+
+	c_data, c_data_exists := properties.coorelation_data.?
+	if c_data_exists {
 		append_property(&will_properties_bytes, .Correlation_Data, c_data)
 	}
-	if user_props, user_props_exists := packet.payload.will_properties.user_properties.?;
-	   user_props_exists {
+
+	user_props, user_props_exists := properties.user_properties.?
+	if user_props_exists {
 		for up in user_props {
 			append_property(&will_properties_bytes, .User_Property, up.name, up.value)
 		}
@@ -172,18 +178,18 @@ connect_payload_will :: proc(packet: Connect_Packet) -> (will_payload_bytes: [dy
 	len_will_properties := cast((u128))len(will_properties_bytes)
 	append_varint(&will_payload_bytes, len_will_properties)
 	append(&will_payload_bytes, ..will_properties_bytes[:])
-	append_string(&will_payload_bytes, packet.payload.will_properties.will_topic)
-	append_string(&will_payload_bytes, "Some test payload")
+	append_string(&will_payload_bytes, will.will_topic)
+	append_string(&will_payload_bytes, will.payload)
 	return
 }
 
 
 serialize_connect_payload :: proc(packet: Connect_Packet) -> (payload_bytes: [dynamic]byte) {
 	payload_bytes = make([dynamic]byte)
-	append_string(&payload_bytes, packet.payload.client_identifier)
+	append_string(&payload_bytes, packet.client_identifier)
 
 	if will, will_exists := packet.will.?; will_exists {
-		will_payload_bytes := connect_payload_will(packet)
+		will_payload_bytes := serialize_connect_payload_will(will)
 		defer delete(will_payload_bytes)
 		append(&payload_bytes, ..will_payload_bytes[:])
 	}
@@ -208,6 +214,7 @@ serialize_connect_packet :: proc(
 	error: Serialize_Error,
 ) {
 	variable_header_first_ten := connect_variable_header_first_ten(packet)
+
 	properties, e := serialize_connect_properties(packet)
 	defer delete(properties)
 
