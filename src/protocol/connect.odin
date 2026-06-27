@@ -3,16 +3,75 @@ package protocol
 import "core:encoding/varint"
 import "core:fmt"
 import "core:slice"
+import "core:strings"
 import "iotdin:util"
 
 @(private)
 FIXED_HEADER_FLAGS :: 0
 
+Connect_Flags :: enum {
+	Reserved,
+	Clean_Start,
+	Will_Flag,
+	Will_QOS,
+	Will_QOS2,
+	Will_Retain,
+	Password,
+	User_Name,
+}
+
+Connect_Flags_Set :: bit_set[Connect_Flags]
+
+Connect_Properties :: struct {
+	session_expiry_interval:      u32,
+	receive_maximum:              u16,
+	maximum_packet_size:          u32,
+	topic_alias_maximum:          u16,
+	request_response_information: bool,
+	request_problem_information:  bool,
+	user_properties:              Maybe([]UserProperty),
+	authentication_method:        Maybe(string), // TODO: come back to with better defined auth ideas
+	authentication_data:          Maybe([]byte),
+}
+
+Connect_Will :: struct {
+	qos:        QoS_Type,
+	will_topic: string,
+	payload:    string,
+	properties: Maybe(Connect_Will_Properties),
+	retain:     bool,
+}
+
+Connect_Will_Properties :: struct {
+	will_delay_interval:      Maybe(u32),
+	payload_format_indicator: Maybe(bool),
+	message_expiry_interval:  Maybe(u32),
+	content_type:             Maybe(string),
+	response_topic:           Maybe(string),
+	coorelation_data:         Maybe([]byte),
+	user_properties:          Maybe([]UserProperty),
+}
+
+
+Connect_Packet :: struct {
+	duplicate:         bool,
+	username:          Maybe(string),
+	password:          Maybe([]byte),
+	clean_start:       bool,
+	keep_alive:        u16,
+	properties:        Connect_Properties,
+	client_identifier: string,
+	will:              Maybe(Connect_Will),
+	protocol_version:  int,
+	protocol:          string,
+}
+
+
 serialize_connect_properties :: proc(
 	packet: Connect_Packet,
 ) -> (
 	properties: [dynamic]byte,
-	error: varint.Error,
+	error: Serialize_Error,
 ) {
 	properties = make([dynamic]byte)
 	properties_just_data := make([dynamic]byte)
@@ -72,7 +131,11 @@ serialize_connect_properties :: proc(
 	combined_byte_length := len(properties_just_data)
 
 
-	err := append_varint(&properties, u128(combined_byte_length))
+	properties_len, properties_len_okay := make_u28(combined_byte_length)
+	if !properties_len_okay {
+		return properties, .Properties_Bigger_Than_U28
+	}
+	append_varint(&properties, properties_len)
 	append(&properties, ..properties_just_data[:])
 
 
@@ -82,13 +145,13 @@ serialize_connect_properties :: proc(
 // MQTT 5.0 Ref https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901035
 connect_variable_header_first_ten :: proc(packet: Connect_Packet) -> (variableHeader: [10]byte) {
 	bytes := [10]byte {
-		byte(0), // Len MSB
-		byte(4), // Len LSB
+		byte(0),
+		byte(4),
 		byte('M'),
 		byte('Q'),
 		byte('T'),
 		byte('T'),
-		byte(MQTT_VERSION), // Protocol Version
+		MQTT_VERSION,
 		connect_variable_flags(packet),
 		byte(packet.keep_alive >> 8),
 		byte(packet.keep_alive),
@@ -107,7 +170,7 @@ connect_variable_flags :: proc(packet: Connect_Packet) -> (flags: byte) {
 	flags |= (1 << 6) if password_exists else 0
 
 	will, will_exists := packet.will.?
-	flags |= (1 << 5) if will_exists else 0
+	flags |= (1 << 5) if will_exists && will.retain else 0
 
 	if will_exists {
 		switch will.qos {
@@ -126,7 +189,12 @@ connect_variable_flags :: proc(packet: Connect_Packet) -> (flags: byte) {
 	return
 }
 
-serialize_connect_payload_will :: proc(will: Connect_Will) -> (will_payload_bytes: [dynamic]byte) {
+serialize_connect_payload_will :: proc(
+	will: Connect_Will,
+) -> (
+	will_payload_bytes: [dynamic]byte,
+	error: Serialize_Error,
+) {
 	will_payload_bytes = make([dynamic]byte)
 
 	properties, _ := will.properties.?
@@ -175,7 +243,11 @@ serialize_connect_payload_will :: proc(will: Connect_Will) -> (will_payload_byte
 		}
 	}
 
-	len_will_properties := cast((u128))len(will_properties_bytes)
+	len_will_properties, len_will_properties_ok := make_u28(len(will_properties_bytes))
+	if !len_will_properties_ok {
+		return will_payload_bytes, .Will_Properties_Bigger_Than_U28
+	}
+
 	append_varint(&will_payload_bytes, len_will_properties)
 	append(&will_payload_bytes, ..will_properties_bytes[:])
 	append_string(&will_payload_bytes, will.will_topic)
@@ -184,12 +256,17 @@ serialize_connect_payload_will :: proc(will: Connect_Will) -> (will_payload_byte
 }
 
 
-serialize_connect_payload :: proc(packet: Connect_Packet) -> (payload_bytes: [dynamic]byte) {
+serialize_connect_payload :: proc(
+	packet: Connect_Packet,
+) -> (
+	payload_bytes: [dynamic]byte,
+	error: Serialize_Error,
+) {
 	payload_bytes = make([dynamic]byte)
 	append_string(&payload_bytes, packet.client_identifier)
 
 	if will, will_exists := packet.will.?; will_exists {
-		will_payload_bytes := serialize_connect_payload_will(will)
+		will_payload_bytes := serialize_connect_payload_will(will) or_return
 		defer delete(will_payload_bytes)
 		append(&payload_bytes, ..will_payload_bytes[:])
 	}
@@ -218,16 +295,129 @@ serialize_connect_packet :: proc(
 	properties, e := serialize_connect_properties(packet)
 	defer delete(properties)
 
-	payload := serialize_connect_payload(packet)
+	payload := serialize_connect_payload(packet) or_return
 	defer delete(payload)
 
-	size_of_packet := cast(u128)(len(variable_header_first_ten) + len(properties) + len(payload))
-	combined_size, err, combined_var_int := serialize_variable_int(size_of_packet)
+	size_of_packet, size_of_packet_ok := make_u28(
+		len(variable_header_first_ten) + len(properties) + len(payload),
+	)
+	if !size_of_packet_ok {
+		return .Packet_Size_Bigger_Than_U28
+	}
 
+	combined_size, combined_var_int := encode_variable_int(size_of_packet)
 	serialize_fixed_header(buf, .CONNECT, combined_var_int[:combined_size], FIXED_HEADER_FLAGS)
 	append(buf, ..variable_header_first_ten[:])
 	append(buf, ..properties[:])
 	append(buf, ..payload[:])
 
-	return .None
+	return Serialize_Error.None
+}
+
+
+deserialize_connect_variable_header_flags :: proc(
+	buf: []byte,
+	offset: u16,
+	packet: ^Connect_Packet,
+) -> (
+	error: DeSerialize_Error,
+) {
+	if len(buf) < cast(int)(offset + 2) {
+		return .MQTT_Connect_Flags_Missing
+	}
+	connect_flags_byte := buf[offset + 1:offset + 2][0]
+	flags := transmute(Connect_Flags_Set)connect_flags_byte
+
+	will_flag := .Will_Flag in flags
+	will_qos_one := .Will_QOS in flags
+	will_qos_two := .Will_QOS2 in flags
+	will_retain := .Will_Retain in flags
+	if !will_flag && (will_qos_one || will_qos_two) {
+		return .MQTT_Will_Flag_Unset_With_QOS
+	}
+	if !will_flag && will_retain {
+		return .MQTT_Will_Flag_Unset_With_Retain
+	}
+	if will_flag {
+		packet.will = Connect_Will {
+			retain = will_retain,
+			qos    = cast(QoS_Type)(int(will_qos_one) | int(will_qos_two) << 1),
+		}
+	}
+
+	for flag in flags {
+		#partial switch flag {
+		case .Reserved:
+			return .MQTT_Reserved_Flag_Set
+		case .Clean_Start:
+			packet.clean_start = true
+		case .Password:
+			packet.password = []byte{}
+		case .User_Name:
+			packet.username = ""
+		}
+	}
+
+	return
+}
+
+deserialize_connect_variable_header_protocol :: proc(
+	buf: []byte,
+	offset: u16,
+	packet: ^Connect_Packet,
+) -> (
+	err: DeSerialize_Error,
+) {
+	if len(buf) < cast(int)(offset) {
+		return .MQTT_Protocol_Missing
+	}
+
+	protocol_message := buf[2:offset]
+	protocol_str_builder: strings.Builder
+	strings.builder_init(&protocol_str_builder)
+	for b, i in protocol_message {
+		strings.write_rune(&protocol_str_builder, rune(b))
+	}
+	packet.protocol = strings.to_string(protocol_str_builder)
+	if packet.protocol != PROTOCOL_STR {
+		err = .MQTT_Protocol_Malformed
+	}
+
+	return
+}
+
+deserialize_connect_variable_header_protocol_version :: proc(
+	buf: []byte,
+	offset: u16,
+	packet: ^Connect_Packet,
+) -> (
+	err: DeSerialize_Error,
+) {
+	if len(buf) < cast(int)(offset + 1) {
+		err = .MQTT_Protocol_Version_Missing
+		return
+	}
+
+	protocol_version := buf[offset:offset + 1][0]
+	if protocol_version != MQTT_VERSION {
+		err = .MQTT_Protocol_Version_Malformed
+	}
+
+	return
+}
+
+deserialize_connect_variable_header_first_ten :: proc(
+	buf: []byte,
+	packet: ^Connect_Packet,
+) -> (
+	err: DeSerialize_Error,
+) {
+	n_bytes := read_two_byte_slice(buf) or_return
+	offset := n_bytes + 2
+
+	deserialize_connect_variable_header_protocol(buf, offset, packet) or_return
+	deserialize_connect_variable_header_protocol_version(buf, offset, packet) or_return
+	deserialize_connect_variable_header_flags(buf, offset, packet) or_return
+
+	return
 }

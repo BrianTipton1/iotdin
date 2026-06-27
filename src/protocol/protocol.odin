@@ -1,9 +1,10 @@
 
 package protocol
 
-MQTT_VERSION :: 5
+MQTT_VERSION :: byte(5)
+PROTOCOL_STR :: "MQTT"
+U28_MAX :: u32(1 << 28) - 1
 
-MQTT_Var_Int :: u32
 
 serialize :: proc(buf: ^[dynamic]byte, packet: Packet) -> (error: MQTT_Error) {
 	switch pkt in packet {

@@ -1,17 +1,33 @@
 package protocol
 
-import "core:encoding/varint"
-
-Serialize_Error :: enum {
-	Binary_Data_Too_Long,
+MQTT_No_Error :: enum {
 	None,
 }
 
-MQTT_Var_Int_Error :: enum {
-	Variable_Bytes_More_Than_Four,
+Serialize_Error :: enum {
+	None,
+	Binary_Data_Too_Long,
+	Properties_Bigger_Than_U28,
+	Will_Properties_Bigger_Than_U28,
+	Packet_Size_Bigger_Than_U28,
+}
+
+DeSerialize_Error :: enum {
+	None,
+	MQTT_Protocol_Malformed,
+	MQTT_Protocol_Missing,
+	Two_Byte_Integer_Incorrect_Size,
+	Two_Byte_Integer_Malformed_Size,
+	MQTT_Protocol_Version_Missing,
+	MQTT_Protocol_Version_Malformed,
+	MQTT_Connect_Flags_Missing,
+	MQTT_Reserved_Flag_Set,
+	MQTT_Will_Flag_Unset_With_QOS,
+	MQTT_Will_Flag_Unset_With_Retain,
 }
 
 MQTT_Error :: union {
 	Serialize_Error,
-	MQTT_Var_Int_Error,
+	DeSerialize_Error,
+	MQTT_No_Error,
 }

@@ -1,5 +1,9 @@
 package protocol
 
+U28 :: bit_field u32 {
+	value: u32 | 28,
+}
+
 Packet_Type :: enum uint {
 	Reserved    = 0,
 	CONNECT     = 1,
@@ -23,17 +27,6 @@ QoS_Type :: enum {
 	At_Most_Once  = 0, // Fire and Forget
 	At_Least_Once = 1, // PUBACK
 	Exactly_Once  = 2, // PUBLISH, PUBREC, PUBREL, PUBCOMP
-}
-
-Connect_Packet :: struct {
-	duplicate:         bool,
-	username:          Maybe(string),
-	password:          Maybe([]byte),
-	clean_start:       bool,
-	keep_alive:        u16,
-	properties:        Connect_Properties,
-	client_identifier: string,
-	will:              Maybe(Connect_Will),
 }
 
 Packet :: union {

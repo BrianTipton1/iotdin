@@ -10,6 +10,7 @@ main :: proc() {
 
 	buf := make([dynamic]byte)
 	defer delete(buf)
+
 	x := protocol.serialize(
 	&buf,
 	protocol.Connect_Packet {
@@ -19,18 +20,18 @@ main :: proc() {
 		clean_start = true,
 		client_identifier = "dummyclient",
 		will = protocol.Connect_Will {
-			qos        = .At_Most_Once,
-			// properties = protocol.Connect_Will_Properties {
-				// will_delay_interval = 10,
-				// payload_format_indicator = false,
-				// message_expiry_interval = 20,
-				// content_type = "text/plain",
-				// response_topic = "will response topic",
-				// coorelation_data = nil,
-				// user_properties = nil,
-			// },
+			qos = .At_Most_Once,
+			properties = protocol.Connect_Will_Properties {
+				will_delay_interval = 10,
+				payload_format_indicator = false,
+				message_expiry_interval = 20,
+				content_type = "text/plain",
+				response_topic = "will response topic",
+				coorelation_data = nil,
+				user_properties = nil,
+			},
 			will_topic = "willtopic",
-			payload    = "some payload nice wowzers",
+			payload = "some payload nice wowzers",
 		},
 		properties = protocol.Connect_Properties {
 			session_expiry_interval      = 50,
@@ -50,5 +51,5 @@ main :: proc() {
 	)
 
 	v := buf[:]
-	transport.sendTest(v)
+	transport.send_test(v)
 }

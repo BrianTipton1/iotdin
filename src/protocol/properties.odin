@@ -36,24 +36,6 @@ Property_ID :: enum u8 {
 	Shared_Subscription_Available     = 0x2A,
 }
 
-append_scalar :: proc(
-	buf: ^[dynamic]byte,
-	value: $T,
-) -> MQTT_Error where intrinsics.type_is_integer(T) {
-	when size_of(T) == 1 {
-		append(buf, byte(value))
-	} else when size_of(T) == 2 {
-		b := transmute([2]byte)(u16be(value))
-		append(buf, ..b[:])
-	} else when size_of(T) == 4 {
-		b := transmute([4]byte)(u32be(value))
-		append(buf, ..b[:])
-	} else {
-		#panic("append_property: unsupported integer size")
-	}
-	return .None
-}
-
 append_scalar_property :: proc(
 	buf: ^[dynamic]byte,
 	id: Property_ID,
@@ -62,50 +44,23 @@ append_scalar_property :: proc(
 	append(buf, byte(id))
 	return append_scalar(buf, value)
 }
-append_bool :: proc(buf: ^[dynamic]byte, value: bool) -> MQTT_Error {
-	append(buf, byte(1) if value else byte(0))
-	return .None
-}
+
 append_bool_property :: proc(buf: ^[dynamic]byte, id: Property_ID, value: bool) -> MQTT_Error {
 	append(buf, byte(id))
 	append_bool(buf, value)
-	return .None
+	return MQTT_No_Error.None
 }
 
-
-append_string :: proc(buf: ^[dynamic]byte, s: string) -> MQTT_Error {
-	length := transmute([2]byte)(u16be(len(s)))
-	append(buf, ..length[:])
-	append(buf, ..transmute([]byte)s)
-	return .None
-}
 
 append_string_property :: proc(buf: ^[dynamic]byte, id: Property_ID, s: string) -> MQTT_Error {
 	append(buf, byte(id))
 	append_string(buf, s)
-	return .None
-}
-
-append_binary :: proc(buf: ^[dynamic]byte, data: []byte) -> MQTT_Error {
-	length := transmute([2]byte)(u16be(len(data)))
-	append(buf, ..length[:])
-	append(buf, ..data)
-	return .None
+	return MQTT_No_Error.None
 }
 
 append_binary_property :: proc(buf: ^[dynamic]byte, id: Property_ID, data: []byte) -> MQTT_Error {
 	append(buf, byte(id))
 	return append_binary(buf, data)
-}
-
-append_pair :: proc(buf: ^[dynamic]byte, name: string, value: string) -> MQTT_Error {
-	name_len := transmute([2]byte)(u16be(len(name)))
-	append(buf, ..name_len[:])
-	append(buf, ..transmute([]byte)name)
-	value_len := transmute([2]byte)(u16be(len(value)))
-	append(buf, ..value_len[:])
-	append(buf, ..transmute([]byte)value)
-	return .None
 }
 
 append_pair_property :: proc(
@@ -118,14 +73,7 @@ append_pair_property :: proc(
 	return append_pair(buf, name, value)
 }
 
-append_varint :: proc(buf: ^[dynamic]byte, value: u128) -> MQTT_Error {
-	size, err, encoded := serialize_variable_int(value)
-	if err != .None do return MQTT_Var_Int_Error.Variable_Bytes_More_Than_Four
-	append(buf, ..encoded[:size])
-	return .None
-}
-
-append_varint_property :: proc(buf: ^[dynamic]byte, id: Property_ID, value: u128) -> MQTT_Error {
+append_varint_property :: proc(buf: ^[dynamic]byte, id: Property_ID, value: U28) -> MQTT_Error {
 	append(buf, byte(id))
 	return append_varint(buf, value)
 }
@@ -143,35 +91,6 @@ append_property :: proc {
 UserProperty :: struct {
 	name:  string,
 	value: string,
-}
-
-Connect_Properties :: struct {
-	session_expiry_interval:      u32,
-	receive_maximum:              u16,
-	maximum_packet_size:          u32,
-	topic_alias_maximum:          u16,
-	request_response_information: bool,
-	request_problem_information:  bool,
-	user_properties:              Maybe([]UserProperty),
-	authentication_method:        Maybe(string), // TODO: come back to with better defined auth ideas
-	authentication_data:          Maybe([]byte),
-}
-
-Connect_Will :: struct {
-	qos:        QoS_Type,
-	will_topic: string,
-	payload:    string,
-	properties: Maybe(Connect_Will_Properties),
-}
-
-Connect_Will_Properties :: struct {
-	will_delay_interval:      Maybe(u32),
-	payload_format_indicator: Maybe(bool),
-	message_expiry_interval:  Maybe(u32),
-	content_type:             Maybe(string),
-	response_topic:           Maybe(string),
-	coorelation_data:         Maybe([]byte),
-	user_properties:          Maybe([]UserProperty),
 }
 
 
