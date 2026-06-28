@@ -12,7 +12,7 @@ Serialize_Error :: enum {
 	Packet_Size_Bigger_Than_U28,
 }
 
-DeSerialize_Error :: enum {
+De_Serialize_Error :: enum {
 	None,
 	MQTT_Protocol_Malformed,
 	MQTT_Protocol_Missing,
@@ -24,10 +24,11 @@ DeSerialize_Error :: enum {
 	MQTT_Reserved_Flag_Set,
 	MQTT_Will_Flag_Unset_With_QOS,
 	MQTT_Will_Flag_Unset_With_Retain,
+	MQTT_Keep_Alive_Missing
 }
 
 MQTT_Error :: union {
 	Serialize_Error,
-	DeSerialize_Error,
+	De_Serialize_Error,
 	MQTT_No_Error,
 }

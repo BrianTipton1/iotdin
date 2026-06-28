@@ -34,11 +34,16 @@ expect_encode_variable_byte_max :: proc(t: ^testing.T) {
 	}
 }
 
-// @(test)
-// expect_encode_variable_byte_buf_too_small :: proc(t: ^testing.T) {
-// 	size, err, var_int := protocol.encode_variable_int(protocol.U28(268435456))
-// 	testing.expect(t, err == .Buffer_Too_Small, "Buffer should be too small")
-// }
+@(test)
+expect_encode_variable_byte_buf_too_small :: proc(t: ^testing.T) {
+	negative, negative_ok := protocol.make_u28(-1)
+	testing.expect(t, !negative_ok, "negatives not allowed")
+	exact, exact_ok := protocol.make_u28(protocol.U28_MAX)
+	testing.expect(t, exact_ok, "value should fit into U28")
+	testing.expect(t, exact.value == protocol.U28_MAX, "exact should match")
+	bigger, bigger_ok := protocol.make_u28(protocol.U28_MAX + 1)
+	testing.expect(t, !bigger_ok, "value should be too large")
+}
 
 
 @(test)

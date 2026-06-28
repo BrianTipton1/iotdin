@@ -143,7 +143,11 @@ serialize_connect_properties :: proc(
 }
 
 // MQTT 5.0 Ref https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901035
-connect_variable_header_first_ten :: proc(packet: Connect_Packet) -> (variableHeader: [10]byte) {
+serialize_connect_variable_header_first_ten :: proc(
+	packet: Connect_Packet,
+) -> (
+	variableHeader: [10]byte,
+) {
 	bytes := [10]byte {
 		byte(0),
 		byte(4),
@@ -290,7 +294,7 @@ serialize_connect_packet :: proc(
 ) -> (
 	error: Serialize_Error,
 ) {
-	variable_header_first_ten := connect_variable_header_first_ten(packet)
+	variable_header_first_ten := serialize_connect_variable_header_first_ten(packet)
 
 	properties, e := serialize_connect_properties(packet)
 	defer delete(properties)
@@ -320,7 +324,7 @@ deserialize_connect_variable_header_flags :: proc(
 	offset: u16,
 	packet: ^Connect_Packet,
 ) -> (
-	error: DeSerialize_Error,
+	error: De_Serialize_Error,
 ) {
 	if len(buf) < cast(int)(offset + 2) {
 		return .MQTT_Connect_Flags_Missing
@@ -363,18 +367,24 @@ deserialize_connect_variable_header_flags :: proc(
 
 deserialize_connect_variable_header_protocol :: proc(
 	buf: []byte,
-	offset: u16,
 	packet: ^Connect_Packet,
 ) -> (
-	err: DeSerialize_Error,
+	offset: u16,
+	err: De_Serialize_Error,
 ) {
+	protocol_n_bytes := read_two_byte_slice(buf) or_return
+	offset = protocol_n_bytes + 2
+
 	if len(buf) < cast(int)(offset) {
-		return .MQTT_Protocol_Missing
+		err = .MQTT_Protocol_Missing
+		return
 	}
 
 	protocol_message := buf[2:offset]
 	protocol_str_builder: strings.Builder
 	strings.builder_init(&protocol_str_builder)
+	defer strings.builder_destroy(&protocol_str_builder)
+
 	for b, i in protocol_message {
 		strings.write_rune(&protocol_str_builder, rune(b))
 	}
@@ -391,7 +401,7 @@ deserialize_connect_variable_header_protocol_version :: proc(
 	offset: u16,
 	packet: ^Connect_Packet,
 ) -> (
-	err: DeSerialize_Error,
+	err: De_Serialize_Error,
 ) {
 	if len(buf) < cast(int)(offset + 1) {
 		err = .MQTT_Protocol_Version_Missing
@@ -405,19 +415,35 @@ deserialize_connect_variable_header_protocol_version :: proc(
 
 	return
 }
+deserialize_connect_variable_keep_alive :: proc(
+	buf: []byte,
+	offset: u16,
+	packet: ^Connect_Packet,
+) -> (
+	err: De_Serialize_Error,
+) {
+	if len(buf) < cast(int)(offset + 4) {
+		return .MQTT_Keep_Alive_Missing
+	}
+
+	keep_alive_bytes := buf[offset + 2:offset + 4]
+	keep_alive := read_two_byte_slice(keep_alive_bytes) or_return
+
+	packet.keep_alive = keep_alive
+
+	return
+}
 
 deserialize_connect_variable_header_first_ten :: proc(
 	buf: []byte,
 	packet: ^Connect_Packet,
 ) -> (
-	err: DeSerialize_Error,
+	err: De_Serialize_Error,
 ) {
-	n_bytes := read_two_byte_slice(buf) or_return
-	offset := n_bytes + 2
-
-	deserialize_connect_variable_header_protocol(buf, offset, packet) or_return
+	offset := deserialize_connect_variable_header_protocol(buf, packet) or_return
 	deserialize_connect_variable_header_protocol_version(buf, offset, packet) or_return
 	deserialize_connect_variable_header_flags(buf, offset, packet) or_return
+	deserialize_connect_variable_keep_alive(buf, offset, packet) or_return
 
 	return
 }

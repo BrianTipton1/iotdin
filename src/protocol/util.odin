@@ -59,7 +59,7 @@ append_varint :: proc(buf: ^[dynamic]byte, value: U28) -> MQTT_Error {
 }
 
 
-read_two_byte_slice :: proc(buf: []byte) -> (n_bytes: u16, err: DeSerialize_Error) {
+read_two_byte_slice :: proc(buf: []byte) -> (n_bytes: u16, err: De_Serialize_Error) {
 	u16_parsed: bool
 	n_bytes, u16_parsed = endian.get_u16(buf, .Big)
 
@@ -72,7 +72,8 @@ read_two_byte_slice :: proc(buf: []byte) -> (n_bytes: u16, err: DeSerialize_Erro
 
 
 make_u28 :: proc(value: $T) -> (v: U28, ok: bool) where intrinsics.type_is_integer(T) {
-	if int(value) > int(U28_MAX) {
+	val := int(value)
+	if val > int(U28_MAX) || val < 0 {
 		return v, false
 	}
 
