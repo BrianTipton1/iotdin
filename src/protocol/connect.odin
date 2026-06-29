@@ -1,5 +1,6 @@
 package protocol
 
+import "core:encoding/endian"
 import "core:encoding/varint"
 import "core:fmt"
 import "core:slice"
@@ -29,7 +30,7 @@ Connect_Properties :: struct {
 	topic_alias_maximum:          u16,
 	request_response_information: bool,
 	request_problem_information:  bool,
-	user_properties:              Maybe([]UserProperty),
+	user_properties:              Maybe(^[dynamic]UserProperty),
 	authentication_method:        Maybe(string), // TODO: come back to with better defined auth ideas
 	authentication_data:          Maybe([]byte),
 }
@@ -412,6 +413,7 @@ deserialize_connect_variable_header_protocol_version :: proc(
 	if protocol_version != MQTT_VERSION {
 		err = .MQTT_Protocol_Version_Malformed
 	}
+	packet.protocol_version = int(protocol_version)
 
 	return
 }
@@ -445,5 +447,278 @@ deserialize_connect_variable_header_first_ten :: proc(
 	deserialize_connect_variable_header_flags(buf, offset, packet) or_return
 	deserialize_connect_variable_keep_alive(buf, offset, packet) or_return
 
+	return
+}
+
+deserialize_session_expirty_interval :: proc(
+	buf: []byte,
+	packet: ^Connect_Packet,
+) -> (
+	len_read: int = 4,
+	error: De_Serialize_Error,
+) {
+	session_expiry, session_expiry_ok := endian.get_u32(buf, .Big)
+	if !session_expiry_ok {
+		error = .MQTT_Session_Expiry_Malformed
+		return
+	}
+	packet.properties.session_expiry_interval = session_expiry
+	return
+}
+
+deserialize_recv_max :: proc(
+	buf: []byte,
+	packet: ^Connect_Packet,
+) -> (
+	len_read: int = 2,
+	error: De_Serialize_Error,
+) {
+	recv_max, recv_max_ok := endian.get_u16(buf, .Big)
+	if !recv_max_ok {
+		error = .MQTT_Recieve_Max_Malformed
+		return
+	}
+	packet.properties.receive_maximum = recv_max
+
+	return
+}
+
+deserialize_topic_alias_max :: proc(
+	buf: []byte,
+	packet: ^Connect_Packet,
+) -> (
+	len_read: int = 2,
+	error: De_Serialize_Error,
+) {
+	topic_alias_max, topic_alias_max_ok := endian.get_u16(buf, .Big)
+	if !topic_alias_max_ok {
+		error = .MQTT_Topic_Alias_Max_Malformed
+		return
+	}
+	packet.properties.topic_alias_maximum = topic_alias_max
+
+	return
+}
+
+deserialize_maximum_packet_size :: proc(
+	buf: []byte,
+	packet: ^Connect_Packet,
+) -> (
+	len_read: int = 4,
+	error: De_Serialize_Error,
+) {
+	maximum_packet_size, maximum_packet_size_okay := endian.get_u32(buf, .Big)
+	if !maximum_packet_size_okay {
+		error = .MQTT_Maximum_Packet_Size_Malformed
+		return
+	}
+	packet.properties.maximum_packet_size = maximum_packet_size
+	return
+}
+
+deserialize_request_response_info :: proc(
+	buf: []byte,
+	packet: ^Connect_Packet,
+) -> (
+	len_read: int = 1,
+	error: De_Serialize_Error,
+) {
+	if len(buf) <= 1 {
+		error = .MQTT_Request_Response_Info_Malformed
+		return
+	}
+	b := buf[0]
+	i := int(b)
+	if i != 1 && i != 0 {
+		error = .MQTT_Request_Response_Info_Malformed
+		return
+	}
+	packet.properties.request_response_information = bool(b)
+	return
+}
+
+deserialize_request_problem_info :: proc(
+	buf: []byte,
+	packet: ^Connect_Packet,
+) -> (
+	len_read: int = 1,
+	error: De_Serialize_Error,
+) {
+	if len(buf) <= 1 {
+		error = .MQTT_Request_Problem_Info_Malformed
+		return
+	}
+	b := buf[0]
+	i := int(b)
+	if i != 1 && i != 0 {
+		error = .MQTT_Request_Problem_Info_Malformed
+		return
+	}
+	packet.properties.request_response_information = bool(b)
+	return
+}
+
+deserialize_request_user_property :: proc(
+	buf: []byte,
+	packet: ^Connect_Packet,
+) -> (
+	len_read: int,
+	error: De_Serialize_Error,
+) {
+	name_size, name_size_ok := endian.get_u16(buf, .Big)
+	if !name_size_ok {
+		error = .MQTT_Deserialize_User_Property_Name_Length_Failed
+		return
+	}
+	name_bytes := buf[2:name_size + 2]
+	name := string(name_bytes)
+	remove_name := buf[2 + name_size:]
+
+	value_size, value_size_ok := endian.get_u16(remove_name, .Big)
+	if !value_size_ok {
+		error = .MQTT_Deserialize_User_Property_Value_Length_Failed
+	}
+
+
+	value_bytes := remove_name[2:value_size + 2]
+	value := string(value_bytes)
+
+	existing_user_props, user_props_exist := packet.properties.user_properties.?
+
+	new_property := UserProperty {
+		name  = name,
+		value = value,
+	}
+
+	if user_props_exist {
+		append(existing_user_props, new_property)
+	} else {
+		new_user_properties := new([dynamic]UserProperty)
+		append(new_user_properties, new_property)
+		packet.properties.user_properties = new_user_properties
+	}
+
+	len_read = int(4 + name_size + value_size)
+
+	return
+}
+
+deserialize_authentication_method :: proc(
+	buf: []byte,
+	packet: ^Connect_Packet,
+) -> (
+	len_read: int,
+	error: De_Serialize_Error,
+) {
+	size, size_ok := endian.get_u16(buf, .Big)
+	if !size_ok {
+
+	}
+	packet.properties.authentication_method = string(buf[2:size])
+
+	len_read = int(size + 2)
+	return
+}
+
+deserialize_authentication_data :: proc(
+	buf: []byte,
+	packet: ^Connect_Packet,
+) -> (
+	len_read: int,
+	error: De_Serialize_Error,
+) {
+	size, size_ok := endian.get_u16(buf, .Big)
+	if !size_ok {
+
+	}
+	packet.properties.authentication_data = buf[2:size]
+
+	len_read = int(size + 2)
+	return
+}
+
+
+deserialize_property_by_id :: proc(
+	property_id: Property_ID,
+	buf: []byte,
+	packet: ^Connect_Packet,
+) -> (
+	len_read: int,
+	error: De_Serialize_Error,
+) {
+	#partial switch property_id {
+	case .Session_Expiry_Interval:
+		return deserialize_session_expirty_interval(buf, packet)
+	case .Receive_Maximum:
+		return deserialize_recv_max(buf, packet)
+	case .Maximum_Packet_Size:
+		return deserialize_maximum_packet_size(buf, packet)
+	case .Topic_Alias_Maximum:
+		return deserialize_topic_alias_max(buf, packet)
+	case .Request_Response_Information:
+		return deserialize_request_response_info(buf, packet)
+	case .Request_Problem_Information:
+		return deserialize_request_problem_info(buf, packet)
+	case .User_Property:
+		return deserialize_request_user_property(buf, packet)
+	case .Authentication_Method:
+		return deserialize_authentication_method(buf, packet)
+	case .Authentication_Data:
+		return deserialize_authentication_data(buf, packet)
+	}
+	return
+}
+
+deserialize_connect_variable_header_properties :: proc(
+	buf: []byte,
+	packet: ^Connect_Packet,
+) -> (
+	offset: int,
+	err: De_Serialize_Error,
+) {
+	size, len_props, len_ok := decode_var_int(buf)
+	if !len_ok {
+		err = .MQTT_Connect_Property_Var_Int_Incorrect_Size
+		return
+	}
+	properties_bytes := buf[size:len_props.value + 1]
+
+	offset = size + int(len_props.value)
+
+	len_read := 0
+	i := 0
+	for {
+		offset := len_read + i
+		if offset >= len(properties_bytes) {
+			break
+		}
+		b := properties_bytes[offset]
+		property_id := transmute(Property_ID)b
+		len_read += deserialize_property_by_id(
+			property_id,
+			properties_bytes[1 + offset:],
+			packet,
+		) or_return
+		i += 1
+	}
+
+	return
+}
+
+
+deserialize_connect_packet :: proc(
+	buf: []byte,
+	packet: ^Connect_Packet,
+) -> (
+	error: De_Serialize_Error,
+) {
+	var_byte := buf[1:5]
+	size, remaing_length, remaing_length_ok := decode_var_int(var_byte)
+	if !remaing_length_ok {
+		return .MQTT_Connect_Deserialize_Remaining_Length_Failed
+
+	}
+	deserialize_connect_variable_header_first_ten(buf[1 + size:], packet) or_return
+	offset := deserialize_connect_variable_header_properties(buf[1 + size + 10:], packet) or_return
 	return
 }

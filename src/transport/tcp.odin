@@ -22,7 +22,7 @@ send_test :: proc(data: []byte) {
 
 		accept_client, accept_endpoint, l := net.accept_tcp(tcp_socket)
 		recv_bytes_read, recv_err := net.recv_tcp(tcp_socket, connack[:])
-		util.print(connack[:recv_bytes_read])
+		util.print_bin_string(connack[:recv_bytes_read])
 		fmt.println(recv_bytes_read)
 		fmt.println(recv_err)
 	}

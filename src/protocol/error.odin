@@ -24,7 +24,17 @@ De_Serialize_Error :: enum {
 	MQTT_Reserved_Flag_Set,
 	MQTT_Will_Flag_Unset_With_QOS,
 	MQTT_Will_Flag_Unset_With_Retain,
-	MQTT_Keep_Alive_Missing
+	MQTT_Keep_Alive_Missing,
+	MQTT_Connect_Property_Var_Int_Incorrect_Size,
+	MQTT_Session_Expiry_Malformed,
+	MQTT_Recieve_Max_Malformed,
+	MQTT_Topic_Alias_Max_Malformed,
+	MQTT_Maximum_Packet_Size_Malformed,
+	MQTT_Request_Response_Info_Malformed,
+	MQTT_Request_Problem_Info_Malformed,
+	MQTT_Connect_Deserialize_Remaining_Length_Failed,
+	MQTT_Deserialize_User_Property_Name_Length_Failed,
+	MQTT_Deserialize_User_Property_Value_Length_Failed,
 }
 
 MQTT_Error :: union {

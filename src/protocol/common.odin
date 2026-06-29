@@ -1,6 +1,7 @@
 
 package protocol
 
+import "core:encoding/endian"
 import "core:encoding/varint"
 import "core:math/bits"
 
@@ -17,6 +18,24 @@ encode_control_header_byte :: proc(
 	b = bits.bitfield_insert(b, flags, 0, 4)
 
 	control_header = byte(b)
+	return
+}
+
+decode_packet_type :: proc(first_byte: byte) -> (packet_type: Packet_Type) {
+	res := bits.bitfield_extract(first_byte, 4, 4)
+	packet_type = transmute(Packet_Type)int(res)
+	return
+}
+
+make_packet :: proc(buf: []byte) -> (packet: ^Packet) {
+	packet = new(Packet)
+	packet_type := decode_packet_type(buf[0])
+
+	// TODO: Fill out as impl, remove partial
+	#partial switch packet_type {
+	case .CONNECT:
+		packet^ = Connect_Packet{}
+	}
 	return
 }
 
@@ -39,14 +58,16 @@ encode_variable_int :: proc(u28: U28) -> (size: int, var_int: [4]byte) {
 	return
 }
 
-decode_var_int :: proc(value: []byte) -> (val: U28, ok: bool) {
-	valu128, size, decode_error := varint.decode_uleb128_buffer(value)
+decode_var_int :: proc(value: []byte) -> (size: int, val: U28, ok: bool) {
+	valu128: u128
+	decode_error: varint.Error
+	valu128, size, decode_error = varint.decode_uleb128_buffer(value)
 
 	if size > 4 {
-		return val, false
+		return size, val, false
 	}
 	if decode_error == .None {
-		return make_u28(valu128)
+		return size, make_u28(valu128)
 	}
 
 	return

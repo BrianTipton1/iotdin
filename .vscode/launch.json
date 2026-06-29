@@ -2,7 +2,7 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "type": "lldb-dap",
+      "type": "lldb",
       "request": "launch",
       "name": "Debug",
       "preLaunchTask": "build",
@@ -12,7 +12,7 @@
       "internalConsoleOptions": "openOnSessionStart"
     },
     {
-      "type": "lldb-dap",
+      "type": "lldb",
       "name": "debug tests",
       "request": "launch",
       "program": "${workspaceFolder}/bin/tests_debug",

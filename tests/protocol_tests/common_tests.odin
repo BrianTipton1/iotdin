@@ -64,7 +64,7 @@ expect_decode_valid :: proc(t: ^testing.T) {
 		{buf = {0xFF, 0xFF, 0xFF, 0x7F}, value = protocol.U28(268_435_455), size = 4},
 	}
 	for c in cases {
-		value, err := protocol.decode_var_int(c.buf)
+		_, value, err := protocol.decode_var_int(c.buf)
 		testing.expectf(t, err, "buf %v: unexpected error %v", c.buf, err)
 		testing.expectf(
 			t,
@@ -80,6 +80,15 @@ expect_decode_valid :: proc(t: ^testing.T) {
 @(test)
 expect_decode_too_large :: proc(t: ^testing.T) {
 	buf := []u8{0xFF, 0xFF, 0xFF, 0xFF, 0x01}
-	_, ok := protocol.decode_var_int(buf)
+	_, _, ok := protocol.decode_var_int(buf)
 	testing.expect(t, !ok, "value should be too large")
+}
+
+@(test)
+expect_decode_packet_type_same :: proc(t: ^testing.T) {
+	for pt in protocol.Packet_Type {
+		packet_type_encoded := protocol.encode_control_header_byte(pt, 0)
+		decoded_packet_type := protocol.decode_packet_type(packet_type_encoded)
+		testing.expect(t, pt == decoded_packet_type, "expect packet type should be same")
+	}
 }
