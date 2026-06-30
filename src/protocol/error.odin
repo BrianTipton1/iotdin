@@ -35,6 +35,11 @@ De_Serialize_Error :: enum {
 	MQTT_Connect_Deserialize_Remaining_Length_Failed,
 	MQTT_Deserialize_User_Property_Name_Length_Failed,
 	MQTT_Deserialize_User_Property_Value_Length_Failed,
+	MQTT_Deserialize_Client_Identifier_Length_Failed,
+	MQTT_Deserialize_Will_Topic_Length_Failed,
+	MQTT_Deserialize_Will_Payload_Length_Failed,
+	MQTT_Deserialize_User_Name_Length_Failed,
+	MQTT_Deserialize_Password_Length_Failed,
 }
 
 MQTT_Error :: union {

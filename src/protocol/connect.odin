@@ -38,7 +38,7 @@ Connect_Properties :: struct {
 Connect_Will :: struct {
 	qos:        QoS_Type,
 	will_topic: string,
-	payload:    string,
+	payload:    []byte,
 	properties: Maybe(Connect_Will_Properties),
 	retain:     bool,
 }
@@ -62,7 +62,7 @@ Connect_Packet :: struct {
 	keep_alive:        u16,
 	properties:        Connect_Properties,
 	client_identifier: string,
-	will:              Maybe(Connect_Will),
+	will:              Maybe(^Connect_Will),
 	protocol_version:  int,
 	protocol:          string,
 }
@@ -256,7 +256,7 @@ serialize_connect_payload_will :: proc(
 	append_varint(&will_payload_bytes, len_will_properties)
 	append(&will_payload_bytes, ..will_properties_bytes[:])
 	append_string(&will_payload_bytes, will.will_topic)
-	append_string(&will_payload_bytes, will.payload)
+	append_binary(&will_payload_bytes, will.payload)
 	return
 }
 
@@ -271,7 +271,7 @@ serialize_connect_payload :: proc(
 	append_string(&payload_bytes, packet.client_identifier)
 
 	if will, will_exists := packet.will.?; will_exists {
-		will_payload_bytes := serialize_connect_payload_will(will) or_return
+		will_payload_bytes := serialize_connect_payload_will(will^) or_return
 		defer delete(will_payload_bytes)
 		append(&payload_bytes, ..will_payload_bytes[:])
 	}
@@ -343,12 +343,14 @@ deserialize_connect_variable_header_flags :: proc(
 	if !will_flag && will_retain {
 		return .MQTT_Will_Flag_Unset_With_Retain
 	}
-	if will_flag {
-		packet.will = Connect_Will {
-			retain = will_retain,
-			qos    = cast(QoS_Type)(int(will_qos_one) | int(will_qos_two) << 1),
-		}
+	will := new(Connect_Will)
+	will^ = Connect_Will {
+		retain = will_retain,
+		qos    = cast(QoS_Type)(int(will_qos_one) | int(will_qos_two) << 1),
 	}
+
+	if will_flag {
+		packet.will = will}
 
 	for flag in flags {
 		#partial switch flag {
@@ -669,7 +671,7 @@ deserialize_property_by_id :: proc(
 	return
 }
 
-deserialize_connect_variable_header_properties :: proc(
+deserialize_connect_properties :: proc(
 	buf: []byte,
 	packet: ^Connect_Packet,
 ) -> (
@@ -705,6 +707,156 @@ deserialize_connect_variable_header_properties :: proc(
 	return
 }
 
+deserialize_connect_client_identifier :: proc(
+	buf: []byte,
+	packet: ^Connect_Packet,
+) -> (
+	len_read: int,
+	error: De_Serialize_Error,
+) {
+	client_id_len, client_id_len_ok := endian.get_u16(buf, .Big)
+	if !client_id_len_ok {
+		error = .MQTT_Deserialize_Client_Identifier_Length_Failed
+		return
+	}
+	client_id := buf[2:client_id_len]
+	len_read = 2 + int(client_id_len)
+	packet.client_identifier = string(client_id)
+	return
+}
+
+
+deserialize_will_properties :: proc(
+	buf: []byte,
+	packet: ^Connect_Packet,
+) -> (
+	len_read: int,
+	error: De_Serialize_Error,
+) {
+	will, will_flag := packet.will.?
+	if !will_flag {
+		return
+	}
+	len_read = deserialize_connect_properties(buf, packet) or_return
+	return
+}
+
+deserialize_will_topic :: proc(
+	buf: []byte,
+	packet: ^Connect_Packet,
+) -> (
+	len_read: int,
+	error: De_Serialize_Error,
+) {
+	will, will_flag := packet.will.?
+	if !will_flag {
+		return
+	}
+	len_will_topic, len_will_topic_okay := endian.get_u16(buf, .Big)
+	if !len_will_topic_okay {
+		error = .MQTT_Deserialize_Will_Topic_Length_Failed
+		return
+	}
+
+	will_topic := buf[2:len_will_topic]
+	will.will_topic = string(will_topic)
+
+
+	fmt.println(will.will_topic)
+
+	len_read = int(len_will_topic) + 2
+
+	return
+}
+
+deserialize_will_payload :: proc(
+	buf: []byte,
+	packet: ^Connect_Packet,
+) -> (
+	len_read: int,
+	error: De_Serialize_Error,
+) {
+	will, will_flag := packet.will.?
+	if !will_flag {
+		return
+	}
+	len_will_payload, len_will_payload_okay := endian.get_u16(buf, .Big)
+	if !len_will_payload_okay {
+		error = .MQTT_Deserialize_Will_Payload_Length_Failed
+		return
+	}
+
+	will_payload := buf[2:len_will_payload]
+	will.payload = will_payload
+
+	len_read = int(len_will_payload) + 2
+
+	return
+}
+
+deserialize_connect_user_name :: proc(
+	buf: []byte,
+	packet: ^Connect_Packet,
+) -> (
+	len_read: int = 2,
+	error: De_Serialize_Error,
+) {
+	if _, user_name_flag := packet.username.?; !user_name_flag {
+		return
+	}
+	user_name_len, user_name_len_okay := endian.get_u16(buf, .Big)
+	if !user_name_len_okay {
+		error = .MQTT_Deserialize_User_Name_Length_Failed
+		return
+	}
+	user_name := buf[2:user_name_len]
+
+	packet.username = string(user_name)
+
+	len_read += int(user_name_len)
+
+	return
+}
+
+deserialize_connect_password :: proc(
+	buf: []byte,
+	packet: ^Connect_Packet,
+) -> (
+	len_read: int = 2,
+	error: De_Serialize_Error,
+) {
+	if _, password_flag := packet.username.?; !password_flag {
+		return
+	}
+	password_len, password_len_okay := endian.get_u16(buf, .Big)
+	if !password_len_okay {
+		error = .MQTT_Deserialize_Password_Length_Failed
+		return
+	}
+	password := buf[2:password_len]
+
+	packet.password = password
+
+	len_read += int(password_len)
+
+	return
+}
+
+deserialize_connect_payload :: proc(
+	buf: []byte,
+	packet: ^Connect_Packet,
+) -> (
+	error: De_Serialize_Error,
+) {
+	read := deserialize_connect_client_identifier(buf, packet) or_return
+	read += deserialize_will_properties(buf[read:], packet) or_return
+	read += deserialize_will_topic(buf[read:], packet) or_return
+	read += deserialize_will_payload(buf[read:], packet) or_return
+	read += deserialize_connect_user_name(buf[read:], packet) or_return
+	read += deserialize_connect_password(buf[read:], packet) or_return
+
+	return .None
+}
 
 deserialize_connect_packet :: proc(
 	buf: []byte,
@@ -719,6 +871,7 @@ deserialize_connect_packet :: proc(
 
 	}
 	deserialize_connect_variable_header_first_ten(buf[1 + size:], packet) or_return
-	offset := deserialize_connect_variable_header_properties(buf[1 + size + 10:], packet) or_return
+	offset := deserialize_connect_properties(buf[1 + size + 10:], packet) or_return
+	deserialize_connect_payload(buf[1 + size + 10 + offset:], packet) or_return
 	return
 }

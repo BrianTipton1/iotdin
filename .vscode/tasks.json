@@ -7,14 +7,34 @@
       "command": "mkdir -p ${workspaceFolder}/bin"
     },
     {
-      "label": "build",
+      "label": "build broker",
       "type": "shell",
       "command": "odin",
       "args": [
         "build",
-        "src",
+        "src/broker",
         "-debug",
-        "-out:bin/iotdin",
+        "-out:bin/iotdin_broker",
+        "-collection:iotdin=src"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "dependsOn": [
+        "mkdir"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "build client",
+      "type": "shell",
+      "command": "odin",
+      "args": [
+        "build",
+        "src/client",
+        "-debug",
+        "-out:bin/iotdin_client",
         "-collection:iotdin=src"
       ],
       "group": {

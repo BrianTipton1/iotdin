@@ -32,18 +32,36 @@ expect_packet_will_have_mqtt :: proc(t: ^testing.T) {
 
 @(test)
 expect_packet_will_have_mqtt_variable_flags :: proc(t: ^testing.T) {
+	context.allocator = context.temp_allocator
 	Case :: struct {
 		packet: Packet,
 		value:  protocol.Connect_Flags_Set,
 	}
+	will1 := new(Will)
+	will2 := new(Will)
+	will2^ = Will {
+		qos = .At_Least_Once,
+	}
+	will3 := new(Will)
+	will3^ = Will {
+		qos = .At_Most_Once,
+	}
+	will4 := new(Will)
+	will4^ = Will {
+		qos = .Exactly_Once,
+	}
+	will5 := new(Will)
+	will5^ = Will {
+		retain = true,
+	}
 	cases := []Case {
 		{packet = Packet{username = ""}, value = {.User_Name}},
 		{packet = Packet{password = []byte{}}, value = {.Password}},
-		{packet = Packet{will = Will{}}, value = {.Will_Flag}},
-		{packet = Packet{will = Will{qos = .At_Least_Once}}, value = {.Will_QOS, .Will_Flag}},
-		{packet = Packet{will = Will{qos = .At_Most_Once}}, value = {.Will_Flag}},
-		{packet = Packet{will = Will{qos = .Exactly_Once}}, value = {.Will_QOS2, .Will_Flag}},
-		{packet = Packet{will = Will{retain = true}}, value = {.Will_Retain, .Will_Flag}},
+		{packet = Packet{will = will1}, value = {.Will_Flag}},
+		{packet = Packet{will = will2}, value = {.Will_QOS, .Will_Flag}},
+		{packet = Packet{will = will3}, value = {.Will_Flag}},
+		{packet = Packet{will = will4}, value = {.Will_QOS2, .Will_Flag}},
+		{packet = Packet{will = will5}, value = {.Will_Retain, .Will_Flag}},
 		{packet = Packet{clean_start = true}, value = {.Clean_Start}},
 	}
 
@@ -53,27 +71,30 @@ expect_packet_will_have_mqtt_variable_flags :: proc(t: ^testing.T) {
 		testing.expectf(t, c.value == bs, "Case: %d. Expected: %d to be %d", i + 1, bs, c.value)
 	}
 
+	free_all(context.temp_allocator)
 }
 
 
 @(test)
 expect_packet_can_serialize_keep_alive :: proc(t: ^testing.T) {
+	context.allocator = context.temp_allocator
 	packet := Packet {
 		keep_alive = 16,
 	}
 
 	b := protocol.serialize_connect_variable_header_first_ten(packet)
 	out_packet := new(Packet)
-	defer free(out_packet)
 
 	err := protocol.deserialize_connect_variable_header_first_ten(b[:], out_packet)
 	testing.expect(t, packet.keep_alive == out_packet.keep_alive, "Keep alive should be same")
+	free_all(context.temp_allocator)
 }
 
 @(test)
 expect_packet_will_exists :: proc(t: ^testing.T) {
+	context.allocator = context.temp_allocator
 	packet := Packet {
-		will = Will{},
+		will = new(Will),
 	}
 
 	b := protocol.serialize_connect_variable_header_first_ten(packet)
@@ -83,10 +104,12 @@ expect_packet_will_exists :: proc(t: ^testing.T) {
 	err := protocol.deserialize_connect_variable_header_first_ten(b[:], out_packet)
 	_, will_exists := out_packet.will.?
 	testing.expect(t, will_exists, "will should exist")
+	free_all(context.temp_allocator)
 }
 
 @(test)
 expect_packet_will_not_exists :: proc(t: ^testing.T) {
+	context.allocator = context.temp_allocator
 	packet := Packet{}
 
 	b := protocol.serialize_connect_variable_header_first_ten(packet)
@@ -96,15 +119,22 @@ expect_packet_will_not_exists :: proc(t: ^testing.T) {
 	err := protocol.deserialize_connect_variable_header_first_ten(b[:], out_packet)
 	_, will_exists := out_packet.will.?
 	testing.expect(t, !will_exists, "will should not exist")
+	free_all(context.temp_allocator)
 }
 
 
 @(test)
 expect_packet_without_will_flag_cant_have_qos :: proc(t: ^testing.T) {
-	packets := []Packet {
-		Packet{will = Will{qos = .At_Least_Once}},
-		Packet{will = Will{qos = .Exactly_Once}},
+	context.allocator = context.temp_allocator
+	will1 := new(Will)
+	will1^ = Will {
+		qos = .At_Least_Once,
 	}
+	will2 := new(Will)
+	will2^ = Will {
+		qos = .Exactly_Once,
+	}
+	packets := []Packet{Packet{will = will1}, Packet{will = will2}}
 
 	for packet in packets {
 		bytes := protocol.serialize_connect_variable_header_first_ten(packet)
@@ -119,13 +149,20 @@ expect_packet_without_will_flag_cant_have_qos :: proc(t: ^testing.T) {
 			"will should not have qos without will flag",
 		)
 	}
+	free_all(context.temp_allocator)
 }
 
 
 @(test)
 expect_packet_without_will_flag_cant_retain :: proc(t: ^testing.T) {
+	context.allocator = context.temp_allocator
+	will := new(Will)
+	will^ = Will {
+		qos    = .At_Most_Once,
+		retain = true,
+	}
 	packet := Packet {
-		will = Will{qos = .At_Most_Once, retain = true},
+		will = will,
 	}
 
 	bytes := protocol.serialize_connect_variable_header_first_ten(packet)
@@ -139,15 +176,26 @@ expect_packet_without_will_flag_cant_retain :: proc(t: ^testing.T) {
 		err == .MQTT_Will_Flag_Unset_With_Retain,
 		"will should not have will retain without will flag",
 	)
+
+	free_all(context.temp_allocator)
 }
 
 @(test)
 expect_packet_qos_can_be_serialized :: proc(t: ^testing.T) {
-	packets := []Packet {
-		Packet{will = Will{qos = .At_Most_Once}},
-		Packet{will = Will{qos = .At_Least_Once}},
-		Packet{will = Will{qos = .Exactly_Once}},
+	context.allocator = context.temp_allocator
+	will1 := new(protocol.Connect_Will)
+	will1^ = Will {
+		qos = .At_Most_Once,
 	}
+	will2 := new(protocol.Connect_Will)
+	will2^ = Will {
+		qos = .At_Least_Once,
+	}
+	will3 := new(protocol.Connect_Will)
+	will3^ = Will {
+		qos = .Exactly_Once,
+	}
+	packets := []Packet{Packet{will = will1}, Packet{will = will2}, Packet{will = will3}}
 
 	for packet in packets {
 		bytes := protocol.serialize_connect_variable_header_first_ten(packet)
@@ -159,15 +207,17 @@ expect_packet_qos_can_be_serialized :: proc(t: ^testing.T) {
 		will, will_exists := out_packet.will.?
 		testing.expect(
 			t,
-			will_exists && will.qos == packet.will.(protocol.Connect_Will).qos,
+			will_exists && will.qos == packet.will.(^protocol.Connect_Will).qos,
 			"will qos should match",
 		)
 	}
+	free_all(context.temp_allocator)
 }
 
 
 @(test)
 expect_packet_user_name_flag_is_set :: proc(t: ^testing.T) {
+	context.allocator = context.temp_allocator
 	packet := Packet {
 		username = "some user",
 	}
@@ -180,10 +230,12 @@ expect_packet_user_name_flag_is_set :: proc(t: ^testing.T) {
 
 	_, user_name_exists := out_packet.username.?
 	testing.expect(t, user_name_exists, "user name should exist")
+	free_all(context.temp_allocator)
 }
 
 @(test)
 expect_packet_password_flag_is_set :: proc(t: ^testing.T) {
+	context.allocator = context.temp_allocator
 	pass := []byte{byte('P'), byte('A'), byte('S'), byte('S')}
 	packet := Packet {
 		password = pass,
@@ -197,12 +249,12 @@ expect_packet_password_flag_is_set :: proc(t: ^testing.T) {
 
 	_, password_exists := out_packet.password.?
 	testing.expect(t, password_exists, "password should exist")
+	free_all(context.temp_allocator)
 }
 
 
 @(test)
 deserialize_packet :: proc(t: ^testing.T) {
-
 	context.allocator = context.temp_allocator
 	user_properties := new([dynamic]protocol.UserProperty)
 	append(
@@ -213,6 +265,21 @@ deserialize_packet :: proc(t: ^testing.T) {
 			protocol.UserProperty{name = "some new key", value = "some new value"},
 		},
 	)
+	will := new(protocol.Connect_Will)
+	will^ = protocol.Connect_Will {
+		qos = .At_Least_Once,
+		properties = protocol.Connect_Will_Properties {
+			will_delay_interval = 10,
+			payload_format_indicator = false,
+			message_expiry_interval = 20,
+			content_type = "text/plain",
+			response_topic = "will response topic",
+			coorelation_data = nil,
+			user_properties = nil,
+		},
+		will_topic = "willtopic",
+		payload = transmute([]byte)string("some payload nice wowzers"),
+	}
 	packet := protocol.Connect_Packet {
 		duplicate = false,
 		username = "test",
@@ -222,20 +289,7 @@ deserialize_packet :: proc(t: ^testing.T) {
 		clean_start = true,
 		client_identifier = "dummyclient",
 		keep_alive = 55,
-		will = protocol.Connect_Will {
-			qos = .At_Least_Once,
-			properties = protocol.Connect_Will_Properties {
-				will_delay_interval = 10,
-				payload_format_indicator = false,
-				message_expiry_interval = 20,
-				content_type = "text/plain",
-				response_topic = "will response topic",
-				coorelation_data = nil,
-				user_properties = nil,
-			},
-			will_topic = "willtopic",
-			payload = "some payload nice wowzers",
-		},
+		will = will,
 		properties = protocol.Connect_Properties {
 			session_expiry_interval = 50,
 			maximum_packet_size = 60,
@@ -282,7 +336,7 @@ deserialize_packet :: proc(t: ^testing.T) {
 	)
 
 	deserialized_will, deserialized_will_okay := deserialized_packet.will.?
-	will, will_okay := packet.will.?
+	will_deserialized, will_okay := packet.will.?
 	testing.expect(
 		t,
 		will_okay == deserialized_will_okay,
@@ -290,12 +344,12 @@ deserialize_packet :: proc(t: ^testing.T) {
 	)
 	testing.expect(
 		t,
-		will.qos == deserialized_will.qos,
+		will_deserialized^.qos == deserialized_will.qos,
 		"expect deserializing will qos should match",
 	)
 	testing.expect(
 		t,
-		will.retain == deserialized_will.retain,
+		will_deserialized^.retain == deserialized_will.retain,
 		"expect deserializing will retain should match",
 	)
 	_, deserialized_username_okay := deserialized_packet.username.?

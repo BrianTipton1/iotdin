@@ -4,9 +4,19 @@
     {
       "type": "lldb",
       "request": "launch",
-      "name": "Debug",
-      "preLaunchTask": "build",
-      "program": "${workspaceFolder}/bin/iotdin",
+      "name": "Debug Client",
+      "preLaunchTask": "build client",
+      "program": "${workspaceFolder}/bin/iotdin_client",
+      "args": [],
+      "cwd": "${workspaceFolder}/src",
+      "internalConsoleOptions": "openOnSessionStart"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug Broker",
+      "preLaunchTask": "build broker",
+      "program": "${workspaceFolder}/bin/iotdin_broker",
       "args": [],
       "cwd": "${workspaceFolder}/src",
       "internalConsoleOptions": "openOnSessionStart"
