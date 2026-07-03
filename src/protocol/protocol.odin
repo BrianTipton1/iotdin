@@ -19,9 +19,9 @@ serialize :: proc(buf: ^[dynamic]byte, packet: Packet) -> (error: MQTT_Error) {
 deserialize :: proc(buf: []byte) -> (packet: ^Packet, error: MQTT_Error) {
 	packet = make_packet(buf)
 
-	switch &v in packet {
+	switch &p in packet {
 	case Connect_Packet:
-		deserialize_connect_packet(buf, &v) or_return
+		deserialize_connect_packet(buf, &p) or_return
 	}
 
 	return

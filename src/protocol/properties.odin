@@ -1,8 +1,11 @@
+#+feature dynamic-literals
 
 package protocol
 
 import "base:intrinsics"
-import "core:encoding/varint"
+import "core:encoding/endian"
+import "iotdin:util"
+import "iotdin:util/slices"
 
 MAX_TWO_BYTE_PREFIX_LEN :: 0xFFFF
 

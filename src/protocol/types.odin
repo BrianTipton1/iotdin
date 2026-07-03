@@ -3,6 +3,10 @@ package protocol
 U28 :: bit_field u32 {
 	value: u32 | 28,
 }
+Var_Int :: struct {
+	u28:  U28,
+	size: int,
+}
 
 Packet_Type :: enum uint {
 	Reserved    = 0,

@@ -1,6 +1,8 @@
 package client
 
+import "base:intrinsics"
 import "base:runtime"
+import "core:encoding/endian"
 import "core:fmt"
 import "core:strings"
 import "iotdin:protocol"

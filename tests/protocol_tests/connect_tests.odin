@@ -85,7 +85,7 @@ expect_packet_can_serialize_keep_alive :: proc(t: ^testing.T) {
 	b := protocol.serialize_connect_variable_header_first_ten(packet)
 	out_packet := new(Packet)
 
-	err := protocol.deserialize_connect_variable_header_first_ten(b[:], out_packet)
+	sz, err := protocol.deserialize_connect_variable_header_first_ten(b[:], out_packet)
 	testing.expect(t, packet.keep_alive == out_packet.keep_alive, "Keep alive should be same")
 	free_all(context.temp_allocator)
 }
@@ -101,7 +101,7 @@ expect_packet_will_exists :: proc(t: ^testing.T) {
 	out_packet := new(Packet)
 	defer free(out_packet)
 
-	err := protocol.deserialize_connect_variable_header_first_ten(b[:], out_packet)
+	sz, err := protocol.deserialize_connect_variable_header_first_ten(b[:], out_packet)
 	_, will_exists := out_packet.will.?
 	testing.expect(t, will_exists, "will should exist")
 	free_all(context.temp_allocator)
@@ -116,7 +116,7 @@ expect_packet_will_not_exists :: proc(t: ^testing.T) {
 	out_packet := new(Packet)
 	defer free(out_packet)
 
-	err := protocol.deserialize_connect_variable_header_first_ten(b[:], out_packet)
+	sz, err := protocol.deserialize_connect_variable_header_first_ten(b[:], out_packet)
 	_, will_exists := out_packet.will.?
 	testing.expect(t, !will_exists, "will should not exist")
 	free_all(context.temp_allocator)
@@ -142,7 +142,7 @@ expect_packet_without_will_flag_cant_have_qos :: proc(t: ^testing.T) {
 		defer free(out_packet)
 
 		bytes[7] ~= 1 << 2
-		err := protocol.deserialize_connect_variable_header_first_ten(bytes[:], out_packet)
+		sz, err := protocol.deserialize_connect_variable_header_first_ten(bytes[:], out_packet)
 		testing.expect(
 			t,
 			err == .MQTT_Will_Flag_Unset_With_QOS,
@@ -170,7 +170,7 @@ expect_packet_without_will_flag_cant_retain :: proc(t: ^testing.T) {
 	defer free(out_packet)
 
 	bytes[7] ~= 1 << 2
-	err := protocol.deserialize_connect_variable_header_first_ten(bytes[:], out_packet)
+	sz, err := protocol.deserialize_connect_variable_header_first_ten(bytes[:], out_packet)
 	testing.expect(
 		t,
 		err == .MQTT_Will_Flag_Unset_With_Retain,
@@ -202,7 +202,7 @@ expect_packet_qos_can_be_serialized :: proc(t: ^testing.T) {
 		out_packet := new(Packet)
 		defer free(out_packet)
 
-		err := protocol.deserialize_connect_variable_header_first_ten(bytes[:], out_packet)
+		sz, err := protocol.deserialize_connect_variable_header_first_ten(bytes[:], out_packet)
 
 		will, will_exists := out_packet.will.?
 		testing.expect(
@@ -226,7 +226,7 @@ expect_packet_user_name_flag_is_set :: proc(t: ^testing.T) {
 	out_packet := new(Packet)
 	defer free(out_packet)
 
-	err := protocol.deserialize_connect_variable_header_first_ten(bytes[:], out_packet)
+	sz, err := protocol.deserialize_connect_variable_header_first_ten(bytes[:], out_packet)
 
 	_, user_name_exists := out_packet.username.?
 	testing.expect(t, user_name_exists, "user name should exist")
@@ -245,7 +245,7 @@ expect_packet_password_flag_is_set :: proc(t: ^testing.T) {
 	out_packet := new(Packet)
 	defer free(out_packet)
 
-	err := protocol.deserialize_connect_variable_header_first_ten(bytes[:], out_packet)
+	sz, err := protocol.deserialize_connect_variable_header_first_ten(bytes[:], out_packet)
 
 	_, password_exists := out_packet.password.?
 	testing.expect(t, password_exists, "password should exist")

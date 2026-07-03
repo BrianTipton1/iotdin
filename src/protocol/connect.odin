@@ -288,7 +288,6 @@ serialize_connect_payload :: proc(
 }
 
 
-// TODO: Robust tests needed once decode in place
 serialize_connect_packet :: proc(
 	buf: ^[dynamic]byte,
 	packet: Connect_Packet,
@@ -419,6 +418,7 @@ deserialize_connect_variable_header_protocol_version :: proc(
 
 	return
 }
+
 deserialize_connect_variable_keep_alive :: proc(
 	buf: []byte,
 	offset: u16,
@@ -442,6 +442,7 @@ deserialize_connect_variable_header_first_ten :: proc(
 	buf: []byte,
 	packet: ^Connect_Packet,
 ) -> (
+	len_read: int = 10,
 	err: De_Serialize_Error,
 ) {
 	offset := deserialize_connect_variable_header_protocol(buf, packet) or_return
@@ -678,14 +679,17 @@ deserialize_connect_properties :: proc(
 	offset: int,
 	err: De_Serialize_Error,
 ) {
-	size, len_props, len_ok := decode_var_int(buf)
+	var_int, len_ok := decode_var_int(buf)
+	len_props := var_int.u28.value
+	size := var_int.size
+
 	if !len_ok {
 		err = .MQTT_Connect_Property_Var_Int_Incorrect_Size
 		return
 	}
-	properties_bytes := buf[size:len_props.value + 1]
+	properties_bytes := buf[size:len_props + 1]
 
-	offset = size + int(len_props.value)
+	offset = size + int(len_props)
 
 	len_read := 0
 	i := 0
@@ -865,13 +869,15 @@ deserialize_connect_packet :: proc(
 	error: De_Serialize_Error,
 ) {
 	var_byte := buf[1:5]
-	size, remaing_length, remaing_length_ok := decode_var_int(var_byte)
+	var_int, remaing_length_ok := decode_var_int(var_byte)
 	if !remaing_length_ok {
 		return .MQTT_Connect_Deserialize_Remaining_Length_Failed
 
 	}
-	deserialize_connect_variable_header_first_ten(buf[1 + size:], packet) or_return
-	offset := deserialize_connect_properties(buf[1 + size + 10:], packet) or_return
-	deserialize_connect_payload(buf[1 + size + 10 + offset:], packet) or_return
+	read := var_int.size + 1
+	read += deserialize_connect_variable_header_first_ten(buf[read:], packet) or_return
+	read += deserialize_connect_properties(buf[read:], packet) or_return
+	deserialize_connect_payload(buf[read:], packet) or_return
+
 	return
 }
