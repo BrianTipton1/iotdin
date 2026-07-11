@@ -6,7 +6,7 @@
       "request": "launch",
       "name": "Debug Client",
       "preLaunchTask": "build client",
-      "program": "${workspaceFolder}/bin/iotdin_client",
+      "program": "${workspaceFolder}/bin/oot_client",
       "args": [],
       "cwd": "${workspaceFolder}/src",
       "internalConsoleOptions": "openOnSessionStart"
@@ -16,7 +16,7 @@
       "request": "launch",
       "name": "Debug Broker",
       "preLaunchTask": "build broker",
-      "program": "${workspaceFolder}/bin/iotdin_broker",
+      "program": "${workspaceFolder}/bin/oot_broker",
       "args": [],
       "cwd": "${workspaceFolder}/src",
       "internalConsoleOptions": "openOnSessionStart"

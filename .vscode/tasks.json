@@ -14,8 +14,8 @@
         "build",
         "src/broker",
         "-debug",
-        "-out:bin/iotdin_broker",
-        "-collection:iotdin=src"
+        "-out:bin/oot_broker",
+        "-collection:oot=src"
       ],
       "group": {
         "kind": "build",
@@ -34,8 +34,8 @@
         "build",
         "src/client",
         "-debug",
-        "-out:bin/iotdin_client",
-        "-collection:iotdin=src"
+        "-out:bin/oot_client",
+        "-collection:oot=src"
       ],
       "group": {
         "kind": "build",
@@ -54,7 +54,7 @@
         "test",
         "tests/",
         "-all-packages",
-        "-collection:iotdin=src",
+        "-collection:oot=src",
       ],
       "group": {
         "kind": "test",
@@ -86,7 +86,7 @@
         "-all-packages",
         "-debug",
         "-out:${workspaceFolder}/bin/tests_debug",
-        "-collection:iotdin=src",
+        "-collection:oot=src",
       ],
       "group": "build",
       "problemMatcher": [],

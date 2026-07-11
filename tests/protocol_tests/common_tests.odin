@@ -5,7 +5,7 @@ import "core:log"
 import "core:mem"
 import "core:slice"
 import "core:testing"
-import "iotdin:protocol"
+import "oot:protocol"
 
 
 // Kinda redundant and partially testing varint library and prob should be removed

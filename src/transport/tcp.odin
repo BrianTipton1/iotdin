@@ -4,8 +4,8 @@ package transport
 import "core:fmt"
 import "core:net"
 import "core:thread"
-import "iotdin:protocol"
-import "iotdin:util"
+import "oot:protocol"
+import "oot:util"
 
 send_test :: proc(data: []byte) {
 	socket, err := net.create_socket(.IP4, .TCP)

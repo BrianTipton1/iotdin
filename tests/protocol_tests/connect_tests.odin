@@ -7,8 +7,8 @@ import "core:log"
 import "core:slice"
 import "core:strings"
 import "core:testing"
-import "iotdin:protocol"
-import "iotdin:util"
+import "oot:protocol"
+import "oot:util"
 
 
 @(private)
@@ -260,7 +260,7 @@ deserialize_packet :: proc(t: ^testing.T) {
 	append(
 		user_properties,
 		..[]protocol.UserProperty {
-			protocol.UserProperty{name = "x-iotdin-header", value = "71"},
+			protocol.UserProperty{name = "x-oot-header", value = "71"},
 			protocol.UserProperty{name = "some key", value = "some value 1"},
 			protocol.UserProperty{name = "some new key", value = "some new value"},
 		},
@@ -308,7 +308,7 @@ deserialize_packet :: proc(t: ^testing.T) {
 	protocol.serialize(&packet_bytes, packet)
 
 	deserialized_packet_ptr, deserilized_err := protocol.deserialize(packet_bytes[:])
-	deserialized_packet, ok := deserialized_packet_ptr^.?
+	deserialized_packet, ok := deserialized_packet_ptr^.(protocol.Connect_Packet)
 
 
 	error, _ := deserilized_err.(protocol.De_Serialize_Error)

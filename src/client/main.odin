@@ -5,8 +5,8 @@ import "base:runtime"
 import "core:encoding/endian"
 import "core:fmt"
 import "core:strings"
-import "iotdin:protocol"
-import "iotdin:transport"
+import "oot:protocol"
+import "oot:transport"
 
 main :: proc() {
 	context.allocator = context.temp_allocator
@@ -19,7 +19,7 @@ main :: proc() {
 	append(
 		user_properties,
 		..[]protocol.UserProperty {
-			protocol.UserProperty{name = "x-iotdin-header", value = "1.0"},
+			protocol.UserProperty{name = "x-oot-header", value = "1.0"},
 			protocol.UserProperty{name = "some key", value = "some value"},
 		},
 	)

@@ -5,7 +5,7 @@ import "core:encoding/varint"
 import "core:fmt"
 import "core:slice"
 import "core:strings"
-import "iotdin:util"
+import "oot:util"
 
 @(private)
 FIXED_HEADER_FLAGS :: 0

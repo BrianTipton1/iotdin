@@ -51,12 +51,12 @@ jobs:
       - name: Build Broker
         run: |
           mkdir -p bin
-          odin build src/broker -debug -out:bin/iotdin_broker -collection:iotdin=src
+          odin build src/broker -debug -out:bin/oot_broker -collection:oot=src
 
       - name: Build Client
         run: |
           mkdir -p bin
-          odin build src/client -debug -out:bin/iotdin_client -collection:iotdin=src
+          odin build src/client -debug -out:bin/oot_client -collection:oot=src
 
       - name: Test
-        run: odin test tests/ -all-packages -collection:iotdin=src
+        run: odin test tests/ -all-packages -collection:oot=src

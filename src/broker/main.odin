@@ -7,8 +7,8 @@ import "core:nbio"
 import "core:net"
 import "core:os"
 import "core:thread"
-import "iotdin:protocol"
-import "iotdin:util"
+import "oot:protocol"
+import "oot:util"
 
 Broker_Config :: struct {
 	port:      u16,
