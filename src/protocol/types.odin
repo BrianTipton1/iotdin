@@ -1,9 +1,13 @@
 package protocol
 
+
+MQTT_DEFAULT_PORT :: 1883
+
 U28 :: bit_field u32 {
 	value: u32 | 28,
 }
-Var_Int :: struct {
+
+MQTT_Var_Int :: struct {
 	u28:  U28,
 	size: int,
 }
@@ -35,4 +39,5 @@ QoS_Type :: enum {
 
 Packet :: union {
 	Connect_Packet,
+	Connack_Packet,
 }

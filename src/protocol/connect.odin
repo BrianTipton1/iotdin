@@ -718,14 +718,12 @@ deserialize_connect_client_identifier :: proc(
 	len_read: int,
 	error: De_Serialize_Error,
 ) {
-	client_id_len, client_id_len_ok := endian.get_u16(buf, .Big)
-	if !client_id_len_ok {
-		error = .MQTT_Deserialize_Client_Identifier_Length_Failed
-		return
-	}
-	client_id := buf[2:client_id_len]
-	len_read = 2 + int(client_id_len)
-	packet.client_identifier = string(client_id)
+	packet.client_identifier, len_read = deserialize_utf8_string(
+		buf,
+		.MQTT_Deserialize_Client_Identifier_Length_Failed,
+		.MQTT_Deserialize_Client_Identifier_Malformed,
+	) or_return
+
 	return
 }
 
@@ -741,6 +739,7 @@ deserialize_will_properties :: proc(
 	if !will_flag {
 		return
 	}
+	// Swap to a deserialize_T_properties proc that takes in a given set of appropriate properties.
 	len_read = deserialize_connect_properties(buf, packet) or_return
 	return
 }
@@ -756,19 +755,12 @@ deserialize_will_topic :: proc(
 	if !will_flag {
 		return
 	}
-	len_will_topic, len_will_topic_okay := endian.get_u16(buf, .Big)
-	if !len_will_topic_okay {
-		error = .MQTT_Deserialize_Will_Topic_Length_Failed
-		return
-	}
 
-	will_topic := buf[2:len_will_topic]
-	will.will_topic = string(will_topic)
-
-
-	fmt.println(will.will_topic)
-
-	len_read = int(len_will_topic) + 2
+	will.will_topic, len_read = deserialize_utf8_string(
+		buf,
+		.MQTT_Deserialize_Will_Topic_Length_Failed,
+		.MQTT_Deserialize_Will_Topic_Malformed,
+	) or_return
 
 	return
 }

@@ -3,32 +3,26 @@ package util
 import "core:fmt"
 import "core:strings"
 
-printByteAsBinString :: proc(b: byte) {
+print_byte_as_bit_string :: proc(b: byte) {
 	binString := fmt.tprintf("%08b", b)
 	fmt.println(binString)
 }
 
-printBytesAsBinString :: proc(bytes: []byte) {
+print_bytes_as_bit_string :: proc(bytes: []byte) {
 	for i in bytes {
-		printByteAsBinString(i)
+		print_byte_as_bit_string(i)
 	}
 	fmt.println("----------")
 }
 
-printDynamicBytesAsBinString :: proc(bytes: ^[dynamic]byte) {
+print_dynamic_bytes_as_bit_string :: proc(bytes: ^[dynamic]byte) {
 	for i in bytes {
-		printByteAsBinString(i)
+		print_byte_as_bit_string(i)
 	}
 	fmt.println("----------")
 }
 
-print_bin_string :: proc {
-	printByteAsBinString,
-	printDynamicBytesAsBinString,
-	printBytesAsBinString,
-}
-
-printBytesAsHumanReadable :: proc(bytes: []byte) {
+print_bytes_as_human_readable :: proc(bytes: []byte) {
 	s := strings.repeat("-", len(bytes))
 	fmt.println(s)
 	for b in bytes {
@@ -41,6 +35,13 @@ printBytesAsHumanReadable :: proc(bytes: []byte) {
 	fmt.println("")
 	fmt.println(s)
 }
+
+print_bits :: proc {
+	print_byte_as_bit_string,
+	print_dynamic_bytes_as_bit_string,
+	print_bytes_as_bit_string,
+}
+
 print :: proc {
-	printBytesAsHumanReadable,
+	print_bytes_as_human_readable,
 }

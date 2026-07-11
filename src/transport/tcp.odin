@@ -10,7 +10,7 @@ import "iotdin:util"
 send_test :: proc(data: []byte) {
 	socket, err := net.create_socket(.IP4, .TCP)
 	endpoint := net.Endpoint {
-		port    = 1883,
+		port    = protocol.MQTT_DEFAULT_PORT,
 		address = net.IP4_Loopback,
 	}
 
@@ -24,7 +24,7 @@ send_test :: proc(data: []byte) {
 
 		accept_client, accept_endpoint, l := net.accept_tcp(tcp_socket)
 		recv_bytes_read, recv_err := net.recv_tcp(tcp_socket, connack[:])
-		util.print_bin_string(connack[:recv_bytes_read])
+		// util.print_bin_string(connack[:recv_bytes_read])
 		fmt.println(recv_bytes_read)
 		fmt.println(recv_err)
 	}

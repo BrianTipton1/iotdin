@@ -2,6 +2,7 @@ package protocol
 
 import "base:intrinsics"
 import "core:encoding/endian"
+import "core:unicode"
 
 append_scalar :: proc(
 	buf: ^[dynamic]byte,
@@ -78,4 +79,75 @@ make_u28 :: proc(value: $T) -> (v: U28, ok: bool) where intrinsics.type_is_integ
 	}
 
 	return U28(value), true
+}
+
+
+wrap_endian :: proc(
+	$f: proc "contextless" (buf: []byte, bo: endian.Byte_Order) -> ($T, bool),
+) -> (
+	out_proc: proc(buf: []byte) -> (T, bool),
+) {
+	return proc(buf: []byte) -> (T, bool) {
+			return f(buf, .Big)
+		}
+}
+
+Converter_Type :: struct($T: typeid) {
+	fn: proc(buf: []byte) -> (value: T, ok: bool),
+}
+
+deserialize_utf8_string :: proc(
+	buf: []byte,
+	len_err: De_Serialize_Error,
+	malformed_err: De_Serialize_Error,
+) -> (
+	deserialized: string,
+	len_read: int,
+	err: De_Serialize_Error,
+) {
+	if len(buf) < 2 {
+		err = len_err
+		return
+	}
+	u8_reader := reader_for_type(u16)
+	len_str, len_okay := u8_reader.fn(buf)
+	if !len_okay {
+		err = len_err
+		return
+	}
+
+	if len(buf) < int(len_str) {
+		err = malformed_err
+		return
+	}
+
+	str_bytes := buf[2:len_str]
+
+	for b in str_bytes {
+		if unicode.is_control(rune(b)) {
+			err = malformed_err
+			return
+		}
+	}
+
+	deserialized = string(str_bytes)
+	len_read = 2 + int(len_str)
+
+	return
+}
+
+
+reader_for_type :: proc($T: typeid) -> (converter: Converter_Type(T)) {
+	when T == byte {
+		converter.fn = slices.head
+	} else when T == u32 {
+		converter.fn = wrap_endian(endian.get_u32)
+	} else when T == u16 {
+		converter.fn = wrap_endian(endian.get_u16)
+	} else when T == MQTT_Var_Int {
+		converter.fn = decode_var_int
+	} else {
+		#panic("No impl")
+	}
+	return
 }

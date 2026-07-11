@@ -6,7 +6,7 @@ set -euo pipefail
 # ---- Defaults (override via flags) ------------------------------------------
 MODE="sub"                  # sub | pub
 HOST="localhost"
-PORT="8080"
+PORT="1883"
 TOPIC="test/topic"
 MESSAGE="hello"             # used in pub mode
 QOS="0"                     # 0 | 1 | 2

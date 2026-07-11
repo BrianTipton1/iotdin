@@ -35,6 +35,8 @@ make_packet :: proc(buf: []byte) -> (packet: ^Packet) {
 	#partial switch packet_type {
 	case .CONNECT:
 		packet^ = Connect_Packet{}
+	case .CONNACK:
+		packet^ = Connack_Packet{}
 	}
 	return
 }
@@ -58,7 +60,7 @@ encode_variable_int :: proc(u28: U28) -> (size: int, var_int: [4]byte) {
 	return
 }
 
-decode_var_int :: proc(value: []byte) -> (var_int: Var_Int, ok: bool) {
+decode_var_int :: proc(value: []byte) -> (var_int: MQTT_Var_Int, ok: bool) {
 	valu128, size, decode_error := varint.decode_uleb128_buffer(value)
 
 	if size > 4 {
@@ -67,7 +69,7 @@ decode_var_int :: proc(value: []byte) -> (var_int: Var_Int, ok: bool) {
 
 	if decode_error == .None {
 		u28val, u28ok := make_u28(valu128)
-		var_int = Var_Int {
+		var_int = MQTT_Var_Int {
 			u28  = u28val,
 			size = size,
 		}
